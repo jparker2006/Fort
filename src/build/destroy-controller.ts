@@ -38,6 +38,8 @@ export class DestroyController implements System {
     private readonly player: Player,
     private readonly model: BuildModel,
     private readonly getMode: () => BuildMode,
+    // True while the edit controller owns primary fire (drag-select).
+    private readonly suppressed: () => boolean = () => false,
   ) {}
 
   init(game: Game): void {
@@ -46,7 +48,7 @@ export class DestroyController implements System {
 
   update(dt: number): void {
     this.effects.update(dt);
-    if (this.getMode() !== "mattock") return;
+    if (this.suppressed() || this.getMode() !== "mattock") return;
 
     this.swingTimer = Math.max(0, this.swingTimer - dt);
     const wants = this.input.justPressed("primaryFire") || this.input.isDown("primaryFire");

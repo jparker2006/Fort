@@ -104,10 +104,15 @@ export class BuildModel {
   private readonly q = new THREE.Quaternion();
   private readonly pos = new THREE.Vector3();
   private readonly scl = new THREE.Vector3(1, 1, 1);
+  private readonly yAxis = new THREE.Vector3(0, 1, 0);
 
   constructor(
     private readonly pools: PoolRegistry,
     private readonly collision: CollisionWorld,
+    // Colliders for a variant; defaults to the full-piece colliders. T14 injects
+    // per-edit-variant collider sets so edited geometry and collision agree.
+    private readonly variantColliders: (slot: Slot, rotation: Rotation, variant: VariantId) => Box[] =
+      (slot, rotation) => pieceColliders(slot, rotation),
   ) {}
 
   private occupied = (key: SlotKey): boolean => this.pieces.has(key);
@@ -140,28 +145,76 @@ export class BuildModel {
     if (!this.canPlace(slot, opts).ok) return false;
     const material = opts.material ?? "wood";
     const rotation = opts.rotation ?? 0;
-    const type = pieceType(slot);
-    const variant = fullVariant(type);
+    const variant = fullVariant(pieceType(slot));
+
+    const key = slotKey(slot);
+    const attached = this.attachInstance(key, slot, material, rotation, variant);
+    this.pieces.set(key, {
+      slot, material, rotation, hp: MATERIAL_HP[material], ...attached,
+    });
+    return true;
+  }
+
+  /**
+   * Swap a placed piece to a new edit variant, moving its instance to the
+   * variant's pool and re-deriving its colliders. Material, rotation, slot, and
+   * hit points are preserved. Returns false if nothing is there. (Full T14 use;
+   * T13 confirm calls this with the resolved variant.)
+   */
+  applyEdit(slot: Slot, variant: VariantId): boolean {
+    const key = slotKey(slot);
+    const piece = this.pieces.get(key);
+    if (!piece) return false;
+    if (piece.variant === variant) return true;
+    this.detachInstance(piece);
+    const attached = this.attachInstance(key, slot, piece.material, piece.rotation, variant);
+    piece.variant = attached.variant;
+    piece.poolKey = attached.poolKey;
+    piece.instanceIndex = attached.instanceIndex;
+    piece.colliders = attached.colliders;
+    return true;
+  }
+
+  /** The current edit variant at a slot (or undefined). */
+  variantAt(slot: Slot): VariantId | undefined {
+    return this.pieces.get(slotKey(slot))?.variant;
+  }
+
+  // Add an instance for (variant, material) at the slot placement and register
+  // its colliders. Returns the pool bookkeeping for the caller to store.
+  private attachInstance(
+    key: SlotKey,
+    slot: Slot,
+    material: Material,
+    rotation: Rotation,
+    variant: VariantId,
+  ): { variant: VariantId; poolKey: string; instanceIndex: number; colliders: BoxHandle[] } {
     const pool = this.pools.pool(variant, material);
     const poolKey = `${variant}:${material}`;
-
-    // Instance matrix from the slot placement.
     const p = slotPlacement(slot, rotation);
-    this.q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.rotY);
+    this.q.setFromAxisAngle(this.yAxis, p.rotY);
     this.pos.set(p.x, p.y, p.z);
     this.scratch.compose(this.pos, this.q, this.scl);
     const instanceIndex = pool.add(this.scratch);
-
-    // Colliders into the movement world.
-    const colliders = pieceColliders(slot, rotation).map((b) => this.collision.add(b));
-
-    const key = slotKey(slot);
-    this.pieces.set(key, {
-      slot, material, rotation, variant, poolKey, instanceIndex, colliders,
-      hp: MATERIAL_HP[material],
-    });
+    const colliders = this.variantColliders(slot, rotation, variant).map((b) => this.collision.add(b));
     this.slotsFor(poolKey)[instanceIndex] = key;
-    return true;
+    return { variant, poolKey, instanceIndex, colliders };
+  }
+
+  // Remove a piece's instance (swap-remove, fixing bookkeeping) and free its
+  // colliders, without deleting the piece record.
+  private detachInstance(piece: StoredPiece): void {
+    for (const h of piece.colliders) this.collision.remove(h);
+    const pool = this.pools.pool(piece.variant, piece.material);
+    const slots = this.slotsFor(piece.poolKey);
+    const moved = pool.removeSwap(piece.instanceIndex);
+    if (moved >= 0) {
+      const movedKey = slots[moved]!;
+      slots[piece.instanceIndex] = movedKey;
+      const movedPiece = this.pieces.get(movedKey);
+      if (movedPiece) movedPiece.instanceIndex = piece.instanceIndex;
+    }
+    slots.pop();
   }
 
   /** Apply Mattock damage to a piece; destroys it when hit points reach zero. */
@@ -210,22 +263,7 @@ export class BuildModel {
     const key = slotKey(slot);
     const piece = this.pieces.get(key);
     if (!piece) return false;
-
-    // Free colliders.
-    for (const h of piece.colliders) this.collision.remove(h);
-
-    // Swap-remove the instance; fix up whichever slot moved into the hole.
-    const pool = this.pools.pool(piece.variant, piece.material);
-    const slots = this.slotsFor(piece.poolKey);
-    const moved = pool.removeSwap(piece.instanceIndex);
-    if (moved >= 0) {
-      const movedKey = slots[moved]!;
-      slots[piece.instanceIndex] = movedKey;
-      const movedPiece = this.pieces.get(movedKey);
-      if (movedPiece) movedPiece.instanceIndex = piece.instanceIndex;
-    }
-    slots.pop();
-
+    this.detachInstance(piece);
     this.pieces.delete(key);
     return true;
   }

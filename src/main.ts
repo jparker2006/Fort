@@ -10,6 +10,7 @@ import { makeBox } from "./player/collision.ts";
 import { BuildSystem } from "./build/build-system.ts";
 import { BuildController, type BuildMode } from "./build/build-controller.ts";
 import { DestroyController } from "./build/destroy-controller.ts";
+import { EditController } from "./edit/edit-controller.ts";
 import { makeBuildMaterial } from "./build/materials.ts";
 import { wallOnEdge, floorSlot, stairsSlot, roofSlot, slotKey, decodeSlotKey } from "./build/slots.ts";
 import type { Material, Rotation, PieceType } from "./build/piece.ts";
@@ -62,7 +63,13 @@ game.add(build);
 
 // Build-mode targeting and ghost preview. Added after the camera rig so its
 // per-frame update reads the freshly integrated aim ray.
+// Edit mode: added before the build/destroy controllers so it claims the
+// crosshair and primary fire (same frame) while editing.
+const editController = new EditController(input, cameraRig, player, build.model);
+game.add(editController);
+
 const buildController = new BuildController(input, cameraRig, player, build.model);
+buildController.setSuppressor(() => editController.isEditing());
 game.add(buildController);
 
 // Mattock destroy mode: swings when the controller's mode is "mattock".
@@ -72,6 +79,7 @@ const destroyController = new DestroyController(
   player,
   build.model,
   () => buildController.getMode(),
+  () => editController.isEditing(),
 );
 game.add(destroyController);
 
@@ -231,6 +239,18 @@ const debug = {
         valid: buildController.isValid(),
         ghost: buildController.ghostColorState(),
       };
+    },
+  },
+  // Edit mode (T13).
+  edit: {
+    forceHover(index: number | null): void {
+      editController.debugForceHover(index);
+    },
+    state(): { editing: boolean; type: string; hovered: number; selected: number[] } {
+      return editController.debugState();
+    },
+    isEditing(): boolean {
+      return editController.isEditing();
     },
   },
   // Mattock destroy mode (T12).

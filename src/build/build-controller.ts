@@ -46,6 +46,9 @@ export class BuildController implements System {
 
   gameplay: GameplaySettings = { ...DEFAULT_GAMEPLAY };
 
+  // While editing, primary fire drag-selects tiles instead of placing pieces.
+  private suppressed: () => boolean = () => false;
+
   private readonly ray = new THREE.Ray();
 
   constructor(
@@ -88,6 +91,11 @@ export class BuildController implements System {
     return this.mode === "build";
   }
 
+  /** Route primary fire away from placement while another system (edit) owns it. */
+  setSuppressor(fn: () => boolean): void {
+    this.suppressed = fn;
+  }
+
   setPieceType(type: PieceType): void {
     this.pieceType = type;
     this.rotationOffset = 0;
@@ -126,6 +134,11 @@ export class BuildController implements System {
   // --- Frame ---
 
   update(dt: number): void {
+    // While editing, the edit controller owns the crosshair and primary fire.
+    if (this.suppressed()) {
+      this.ghost.hide();
+      return;
+    }
     this.handleModeBinds();
     if (this.mode === "build") {
       this.updateBuild(dt);
