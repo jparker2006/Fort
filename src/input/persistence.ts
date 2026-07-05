@@ -1,18 +1,21 @@
 import { ACTIONS, type Action } from "./actions.ts";
 import { DEFAULT_BINDINGS, DEFAULT_INPUT_SETTINGS } from "./defaults.ts";
 import type { InputSettings } from "./sensitivity.ts";
+import { DEFAULT_GAMEPLAY, type GameplaySettings } from "../settings/gameplay.ts";
 
-// Versioned localStorage persistence for binds and input settings. Loading is
-// tolerant: a missing, unparseable, or older payload falls back to defaults for
-// any field it cannot supply, so a schema change never bricks the game.
+// Versioned localStorage persistence for binds, input settings, and gameplay
+// toggles. Loading is tolerant: a missing, unparseable, or older payload falls
+// back to defaults for any field it cannot supply, so a schema change never
+// bricks the game. Version 2 added the gameplay block.
 
 const STORAGE_KEY = "fort.input";
-const CURRENT_VERSION = 1;
+const CURRENT_VERSION = 2;
 
 export interface PersistedInput {
   version: number;
   binds: Record<Action, string>;
   settings: InputSettings;
+  gameplay: GameplaySettings;
 }
 
 function safeLocalStorage(): Storage | null {
@@ -39,6 +42,17 @@ function coerceSettings(raw: unknown): InputSettings {
   return s;
 }
 
+function coerceGameplay(raw: unknown): GameplaySettings {
+  const g = { ...DEFAULT_GAMEPLAY };
+  if (raw && typeof raw === "object") {
+    const r = raw as Record<string, unknown>;
+    for (const key of Object.keys(g) as Array<keyof GameplaySettings>) {
+      if (typeof r[key] === "boolean") g[key] = r[key] as boolean;
+    }
+  }
+  return g;
+}
+
 function coerceBinds(raw: unknown): Record<Action, string> {
   const binds: Record<Action, string> = { ...DEFAULT_BINDINGS };
   if (raw && typeof raw === "object") {
@@ -61,35 +75,52 @@ function migrate(parsed: { version?: number } & Record<string, unknown>): Persis
     version: CURRENT_VERSION,
     binds: coerceBinds(parsed.binds),
     settings: coerceSettings(parsed.settings),
+    gameplay: coerceGameplay(parsed.gameplay),
+  };
+}
+
+function defaults(): PersistedInput {
+  return {
+    version: CURRENT_VERSION,
+    binds: { ...DEFAULT_BINDINGS },
+    settings: { ...DEFAULT_INPUT_SETTINGS },
+    gameplay: { ...DEFAULT_GAMEPLAY },
   };
 }
 
 export function loadInput(): PersistedInput {
   const ls = safeLocalStorage();
-  const fallback: PersistedInput = {
-    version: CURRENT_VERSION,
-    binds: { ...DEFAULT_BINDINGS },
-    settings: { ...DEFAULT_INPUT_SETTINGS },
-  };
-  if (!ls) return fallback;
+  if (!ls) return defaults();
   const text = ls.getItem(STORAGE_KEY);
-  if (!text) return fallback;
+  if (!text) return defaults();
   try {
     const parsed = JSON.parse(text) as { version?: number } & Record<string, unknown>;
     return migrate(parsed);
   } catch {
-    return fallback;
+    return defaults();
   }
 }
 
+// Persist binds + input settings, preserving the stored gameplay block (the
+// input system is the caller and does not own gameplay toggles).
 export function saveInput(binds: Record<Action, string>, settings: InputSettings): void {
+  writePayload({ binds, settings });
+}
+
+// Persist gameplay toggles, preserving the stored binds + input settings.
+export function saveGameplay(gameplay: GameplaySettings): void {
+  writePayload({ gameplay });
+}
+
+function writePayload(patch: Partial<Omit<PersistedInput, "version">>): void {
   const ls = safeLocalStorage();
   if (!ls) return;
-  const payload: PersistedInput = { version: CURRENT_VERSION, binds, settings };
+  const current = loadInput();
+  const payload: PersistedInput = { ...current, ...patch, version: CURRENT_VERSION };
   try {
     ls.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
-    // Storage full or blocked; binds simply will not persist this session.
+    // Storage full or blocked; settings simply will not persist this session.
   }
 }
 

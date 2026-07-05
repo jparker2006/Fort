@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { loadInput, saveInput, clearInput } from "./persistence.ts";
+import { loadInput, saveInput, saveGameplay, clearInput } from "./persistence.ts";
 import { DEFAULT_BINDINGS, DEFAULT_INPUT_SETTINGS } from "./defaults.ts";
+import { DEFAULT_GAMEPLAY } from "../settings/gameplay.ts";
 
 // Minimal in-memory localStorage so persistence can be tested under Node.
 class MemStorage {
@@ -82,5 +83,31 @@ describe("input persistence", () => {
     saveInput(DEFAULT_BINDINGS, DEFAULT_INPUT_SETTINGS);
     clearInput();
     expect(localStorage.getItem("fort.input")).toBeNull();
+  });
+
+  it("returns default gameplay toggles when nothing is stored", () => {
+    expect(loadInput().gameplay).toEqual(DEFAULT_GAMEPLAY);
+  });
+
+  it("round-trips gameplay toggles without clobbering binds/settings", () => {
+    saveInput({ ...DEFAULT_BINDINGS, jump: "KeyJ" }, { ...DEFAULT_INPUT_SETTINGS, fov: 100 });
+    saveGameplay({ turboBuild: false, confirmEditOnRelease: true, resetEditOnRelease: true });
+    const loaded = loadInput();
+    expect(loaded.gameplay).toEqual({
+      turboBuild: false,
+      confirmEditOnRelease: true,
+      resetEditOnRelease: true,
+    });
+    // The earlier binds and settings survive the gameplay write.
+    expect(loaded.binds.jump).toBe("KeyJ");
+    expect(loaded.settings.fov).toBe(100);
+  });
+
+  it("saveInput preserves a previously stored gameplay block", () => {
+    saveGameplay({ turboBuild: false, confirmEditOnRelease: false, resetEditOnRelease: true });
+    saveInput({ ...DEFAULT_BINDINGS, jump: "KeyK" }, DEFAULT_INPUT_SETTINGS);
+    const loaded = loadInput();
+    expect(loaded.gameplay.resetEditOnRelease).toBe(true);
+    expect(loaded.binds.jump).toBe("KeyK");
   });
 });

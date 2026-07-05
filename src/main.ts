@@ -15,6 +15,8 @@ import { variantGeometry, variantColliders } from "./edit/variants-catalog.ts";
 import { makeBuildMaterial } from "./build/materials.ts";
 import { Hud } from "./hud/hud.ts";
 import { Minimap } from "./hud/minimap.ts";
+import { SettingsMenu } from "./settings/settings-menu.ts";
+import { loadInput } from "./input/persistence.ts";
 import { formatBindLabel } from "./input/bindings.ts";
 import { wallOnEdge, floorSlot, stairsSlot, roofSlot, slotKey, decodeSlotKey } from "./build/slots.ts";
 import type { Material, Rotation, PieceType } from "./build/piece.ts";
@@ -77,6 +79,12 @@ const buildController = new BuildController(input, cameraRig, player, build.mode
 buildController.setSuppressor(() => editController.isEditing());
 game.add(buildController);
 
+// One shared gameplay-settings object, loaded from storage and referenced by
+// both controllers and the settings menu, so a toggle takes effect everywhere.
+const gameplay = loadInput().gameplay;
+buildController.gameplay = gameplay;
+editController.gameplay = gameplay;
+
 // Mattock destroy mode: swings when the controller's mode is "mattock".
 const destroyController = new DestroyController(
   input,
@@ -107,6 +115,16 @@ const minimap = new Minimap(app, {
   playerYaw: () => cameraRig.yaw,
 });
 game.add(minimap);
+
+// Settings menu (Esc): rebinding, sensitivity, and gameplay toggles. Opening it
+// pauses the sim and freezes gameplay input.
+const settings = new SettingsMenu(app, {
+  input,
+  gameplay,
+  pause: () => game.pause("settings"),
+  resume: () => game.resume("settings"),
+});
+game.add(settings);
 
 // Live action-state overlay (toggle with Backslash).
 const inputOverlay = new DebugInputOverlay(app, input);
@@ -294,6 +312,24 @@ const debug = {
     },
     material(): string {
       return (document.querySelector("#hud-material") as HTMLElement | null)?.dataset.material ?? "";
+    },
+  },
+  // Settings menu (T17).
+  settings: {
+    open(): void {
+      settings.openMenu();
+    },
+    close(): void {
+      settings.closeMenu();
+    },
+    isOpen(): boolean {
+      return settings.isOpen();
+    },
+    gameplay(): { turboBuild: boolean; confirmEditOnRelease: boolean; resetEditOnRelease: boolean } {
+      return { ...gameplay };
+    },
+    fov(): number {
+      return input.settings.fov;
     },
   },
   // Minimap (T16).
