@@ -42,4 +42,5 @@ export type AppEvents = {
   resize: { width: number; height: number };
   pause: { reason: string };
   resume: { reason: string };
+  "input:changed": { reason: string };
 };

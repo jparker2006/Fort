@@ -13,6 +13,8 @@ export interface System {
   fixedUpdate?(dt: number): void;
   update?(dt: number): void;
   render?(alpha: number): void;
+  /** Runs after render for every system; used to clear per-frame input edges. */
+  lateUpdate?(): void;
   dispose?(): void;
 }
 
@@ -123,6 +125,7 @@ export class Game {
       }
       for (const sys of this.systems) sys.update?.(frameDelta);
       for (const sys of this.systems) sys.render?.(alpha);
+      for (const sys of this.systems) sys.lateUpdate?.();
     }
 
     this.renderer.render(this.scene, this.camera);

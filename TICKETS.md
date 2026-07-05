@@ -119,7 +119,7 @@ Notes on batching:
 - Sensitivity multipliers are separate values per context and applied to mouse deltas correctly (unit test with synthetic deltas).
 - Debug overlay shows pressed/released action states for every bind.
 
-**Verification note**: _to fill in when implemented_
+**Verification note**: Done. `src/input/` holds the layer: `actions.ts` (all 19 actions with metadata), `defaults.ts` (Fortnite-familiar defaults, conflict-free), `bindings.ts` (`Bindings` with get/actionFor/rebind reject|swap|steal/conflicts/reset, plus `formatBindLabel`), `sensitivity.ts` (pure `scalePointerDelta` over four contexts with invert Y), `persistence.ts` (versioned localStorage with tolerant coercion and migration seam), and `InputSystem` which is the sole DOM bridge: gameplay reads `isDown`/`justPressed`/`justReleased` and `consumePointerDelta(context)` and never sees codes; per-frame edges are captured in handlers and cleared in `lateUpdate` (new engine hook) so consumers are order-independent. Unit tests: `sensitivity.test.ts` (6, synthetic deltas prove the four contexts are distinct and invert Y flips pitch only), `bindings.test.ts` (10, conflict/swap/steal/reset/labels), `persistence.test.ts` (6, round-trip, corrupt-JSON fallback, partial-payload coercion) - 33 unit tests total pass. Playwright `input.spec.ts` (4): keyboard drives action state live through the map, the overlay lists all actions and shows `[*]` while W is held (screenshot `t04-input-overlay.png`), a rebind of jump to KeyJ persists across reload, and a duplicate bind is rejected with the conflicting action reported.
 
 ### T05: Third-person over-the-shoulder camera rig (FEEL-GATED)
 

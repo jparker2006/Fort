@@ -1,10 +1,11 @@
 import "./style.css";
-import { Game } from "./core/game.ts";
+import { Game, type System } from "./core/game.ts";
 import { World } from "./world/island.ts";
+import { InputSystem } from "./input/input-system.ts";
+import { DebugInputOverlay } from "./input/debug-input-overlay.ts";
 
-// T03 bootstrap: render the creative island. The default camera is placed at a
-// review vantage overlooking the island; T05 replaces it with the third-person
-// rig. T04's input layer and later systems attach here too.
+// T04 bootstrap: island plus the input action map. The default camera is a
+// review vantage; T05 replaces it with the third-person rig.
 
 const app = document.getElementById("app");
 if (!app) {
@@ -13,7 +14,17 @@ if (!app) {
 
 const game = new Game({ parent: app });
 
+const input = new InputSystem();
+input.setEnabled(true); // T18 gates this behind pointer lock; on for early review
+game.add(input);
 game.add(new World());
+
+// Live action-state overlay (toggle with Backslash).
+const inputOverlay = new DebugInputOverlay(app, input);
+game.add({
+  name: "input-overlay",
+  update: () => inputOverlay.update(),
+} satisfies System);
 
 // Review vantage: stand back and above, looking at the island center.
 game.camera.position.set(46, 34, 46);
@@ -23,5 +34,5 @@ game.camera.updateProjectionMatrix();
 
 game.start();
 
-(window as unknown as { __fort?: { game: Game } }).__fort = { game };
+(window as unknown as { __fort?: { game: Game; input: InputSystem } }).__fort = { game, input };
 (window as unknown as { __fortReady?: boolean }).__fortReady = true;
