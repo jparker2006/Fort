@@ -76,7 +76,7 @@ Notes on batching:
 - `npm run test` executes a trivial Playwright spec that loads the page in real Chromium and screenshots the canvas.
 - README stub documents scripts and the no-em-dash rule.
 
-**Verification note**: _to fill in when implemented_
+**Verification note**: Done. Vite + TS + Three.js scaffold with strict tsconfig, ESLint (0 warnings), Prettier, Vitest, and Playwright configured against the environment Chromium at `/opt/pw-browsers/chromium-1194` (executablePath pinned because the installed @playwright/test expects build 1228). `npm run check` runs typecheck + lint + `scripts/check-no-emdash.mjs`; a self-test confirmed the scan fails on a planted U+2014 and reports `file:line:col`. `npm run build` produces a clean bundle. `npm run test` loads the app in real Chromium, asserts the `canvas.fort-canvas` is visible and larger than 100x100, captures zero console/page errors, and screenshots `test-results/evidence/t01-smoke.png` (teal cube renders under swiftshader, confirming WebGL2 works headless). README documents all scripts and the no-em-dash rule.
 
 ### T02: Core engine loop and scene lifecycle
 

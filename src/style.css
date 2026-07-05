@@ -1,0 +1,35 @@
+:root {
+  color-scheme: dark;
+  --hud-bg: #12313a;
+  --hud-fg: #e8f4f4;
+  --hud-accent: #33c4c4;
+  --hud-copper: #cf7d3c;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a1418;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--hud-fg);
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+canvas.fort-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
