@@ -186,3 +186,17 @@ canvas.fort-canvas {
   line-height: 1;
   color: var(--hud-fg);
 }
+
+/* --- Minimap (T16) --- */
+#minimap {
+  position: fixed;
+  top: clamp(14px, 1.6vmin, 40px);
+  right: clamp(14px, 1.6vmin, 40px);
+  width: clamp(120px, 15vmin, 300px);
+  height: clamp(120px, 15vmin, 300px);
+  z-index: 10;
+  pointer-events: none;
+  border-radius: clamp(6px, 0.7vmin, 12px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  image-rendering: auto;
+}

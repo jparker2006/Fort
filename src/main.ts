@@ -14,6 +14,7 @@ import { EditController } from "./edit/edit-controller.ts";
 import { variantGeometry, variantColliders } from "./edit/variants-catalog.ts";
 import { makeBuildMaterial } from "./build/materials.ts";
 import { Hud } from "./hud/hud.ts";
+import { Minimap } from "./hud/minimap.ts";
 import { formatBindLabel } from "./input/bindings.ts";
 import { wallOnEdge, floorSlot, stairsSlot, roofSlot, slotKey, decodeSlotKey } from "./build/slots.ts";
 import type { Material, Rotation, PieceType } from "./build/piece.ts";
@@ -96,6 +97,16 @@ const hud = new Hud(app, {
   bindLabel: (action) => formatBindLabel(input.bindings.get(action)),
 });
 game.add(hud);
+
+// Top-right minimap: island, placed pieces by material, and a player wedge.
+const minimap = new Minimap(app, {
+  forEachPiece: (cb) => build.model.forEachMapPiece(cb),
+  playerPos: () => ({ x: player.state.position.x, z: player.state.position.z }),
+  // The wedge shows the view facing (camera yaw), matching the minimap arrow
+  // convention: it points where the player is looking.
+  playerYaw: () => cameraRig.yaw,
+});
+game.add(minimap);
 
 // Live action-state overlay (toggle with Backslash).
 const inputOverlay = new DebugInputOverlay(app, input);
@@ -283,6 +294,21 @@ const debug = {
     },
     material(): string {
       return (document.querySelector("#hud-material") as HTMLElement | null)?.dataset.material ?? "";
+    },
+  },
+  // Minimap (T16).
+  minimap: {
+    redraw(): void {
+      minimap.redraw();
+    },
+    lastRenderMs(): number {
+      return minimap.lastRender();
+    },
+    pieceCount(): number {
+      return minimap.pieceCount();
+    },
+    playerMarker(): { x: number; y: number; yaw: number } {
+      return minimap.playerMarker();
     },
   },
   // Mattock destroy mode (T12).

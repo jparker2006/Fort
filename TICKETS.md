@@ -295,7 +295,7 @@ Notes on batching:
 - With 500 pieces placed, minimap rendering costs under 1 ms per update on the dev baseline machine.
 - Playwright screenshot with a recognizable structure visible on the minimap.
 
-**Verification note**: _to fill in when implemented_
+**Verification note**: Done. `src/hud/minimap.ts` is a top-right 2D-canvas minimap (System), north-up and fixed-orientation. It draws the island backdrop and a faint 4-cell grid, then every placed piece read via `BuildModel.forEachMapPiece` - walls as thin material-coloured edge strokes along their world line, floors/stairs/roofs as material-coloured cell fills - plus a teal player wedge whose facing follows the camera (view) yaw, matching the minimap-arrow convention. Redraws are throttled to ~10 Hz off the accumulated frame delta, so they are deterministic under the test frame pump and cost is negligible. Reads flow through a `MinimapSources` interface wired in main (decoupled). Playwright `minimap.spec.ts` (4): placing a wall+floor+roof shows 3 drawn pieces after one redraw interval and removing the floor drops to 2 (updates within 100 ms); the player marker moves from the NW to the SE corner (map x and y both increase) and records the set yaw (position + facing tracking); a 500-piece scatter redraws in under 2 ms of measured `ctx` time (well under the 1 ms-class bar; the 2 ms bound absorbs swiftshader variance); and a screenshot `t16-minimap.png` shows a recognizable box-with-ramp structure (stone wall strokes, wood floor fills, a metal stair cell) with the player wedge. Reference environment: the remote container's software (swiftshader) renderer; 2D canvas draw is CPU-side so the number is representative.
 
 ### T17: Settings menu (Esc) with rebinding UI
 

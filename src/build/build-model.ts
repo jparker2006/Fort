@@ -197,6 +197,11 @@ export class BuildModel {
     return this.pieces.get(slotKey(slot))?.variant;
   }
 
+  /** Visit every placed piece's slot and material (for the minimap). */
+  forEachMapPiece(cb: (slot: Slot, material: Material) => void): void {
+    for (const p of this.pieces.values()) cb(p.slot, p.material);
+  }
+
   // Add an instance for (variant, material) at the slot placement and register
   // its colliders. Returns the pool bookkeeping for the caller to store.
   private attachInstance(
