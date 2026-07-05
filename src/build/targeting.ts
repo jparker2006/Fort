@@ -14,7 +14,7 @@ import { floorSlot, stairsSlot, roofSlot, wallOnEdge, type WallDir } from "./slo
 import { BUILD_MAX_LEVEL } from "./rules.ts";
 
 /** How far in front of the player a piece can be targeted, in world units. */
-export const BUILD_REACH = 12;
+export const BUILD_REACH = 3 * CELL_SIZE;
 
 export interface Vec3 {
   x: number;
@@ -40,6 +40,8 @@ export interface Target {
 
 /** The storey a player standing at `feetY` builds on. */
 export function buildLevel(feetY: number): number {
+  // The + 0.5 is an absolute snap tolerance (half a metre of foot slack), not a
+  // grid-derived length, so it stays 0.5 at any CELL_HEIGHT and is not rescaled.
   return Math.max(0, Math.min(BUILD_MAX_LEVEL, Math.floor((feetY + 0.5) / CELL_HEIGHT)));
 }
 

@@ -8,6 +8,8 @@
 // fills a caller-owned array (no per-query allocation) and dedupes with a reused
 // visited set, keeping the movement hot path O(nearby) even with 600+ pieces.
 
+import { CELL_SIZE } from "../world/grid.ts";
+
 export interface Box {
   minX: number;
   minY: number;
@@ -43,7 +45,7 @@ export function makeBox(
 }
 
 /** Spatial-hash cell size in world units (2 build cells). */
-const BUCKET = 8;
+export const BUCKET = 2 * CELL_SIZE;
 
 function bucketIndex(v: number): number {
   return Math.floor(v / BUCKET);

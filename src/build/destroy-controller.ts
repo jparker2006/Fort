@@ -12,13 +12,13 @@ import type { Player } from "../player/player.ts";
 import type { BuildModel } from "./build-model.ts";
 import { slotPlacement } from "./slots.ts";
 import { BreakEffects, MATERIAL_TINT, type Tint } from "./effects.ts";
-import { CELL_HEIGHT } from "../world/grid.ts";
+import { CELL_HEIGHT, CELL_SIZE } from "../world/grid.ts";
 import type { BuildMode } from "./build-controller.ts";
 
 // Mattock reach and swing cadence (Fortnite melee pacing). Reach is measured
 // along the aim ray from the camera, so the ~3.4 unit spring-arm boom leaves an
 // effective reach of roughly 5.5 units in front of the player.
-export const MATTOCK_REACH = 9;
+export const MATTOCK_REACH = 2.25 * CELL_SIZE;
 export const MATTOCK_INTERVAL = 0.35;
 
 export type SwingResult = "destroyed" | "damaged" | "miss";

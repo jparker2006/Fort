@@ -22,7 +22,7 @@ import { faceFrame, rayTile, type FaceFrame } from "./edit-grid.ts";
 import { variantToSelection, selectionToVariant } from "./variants-catalog.ts";
 
 /** Edit reach along the aim ray from the camera (matches the Mattock reach). */
-export const EDIT_REACH = 9;
+export const EDIT_REACH = 2.25 * CELL_SIZE;
 
 export class EditController implements System {
   readonly name = "edit-controller";
