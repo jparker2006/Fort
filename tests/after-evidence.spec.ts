@@ -46,3 +46,22 @@ test("after: player-to-wall-and-floor proportions (T23 rescale)", async ({ page 
   await pump(page, 4);
   await page.screenshot({ path: `${EVIDENCE_DIR}/after-proportions.png` });
 });
+
+test("after: closed 1x1 structure with the half-peak roof (T24)", async ({ page }) => {
+  await ready(page);
+  await page.evaluate((cell) => {
+    const f = (window as unknown as FortWin).__fort;
+    // Same closed hut as before-fort-structure.png: four stone walls and a wood
+    // floor on cell 0, capped by a metal roof on cell 1. After T24 the roof
+    // peaks at half a wall, so the cap now reads low and squat, not a full cone.
+    for (const dir of ["N", "S", "E", "W"]) f.debug.build.wall(0, 0, 0, dir, { material: "stone" });
+    f.debug.build.floor(0, 0, 0, { material: "wood" });
+    f.debug.build.roof(0, 1, 0, { material: "metal" });
+    // Stand south of the hut looking -Z (three cells back), tilted up for the roof.
+    f.debug.teleport(0.5 * cell, 0, 3 * cell);
+    f.debug.setYaw(0);
+    f.debug.setPitch(0.08);
+  }, CELL_SIZE);
+  await pump(page, 4);
+  await page.screenshot({ path: `${EVIDENCE_DIR}/after-fort-structure.png` });
+});

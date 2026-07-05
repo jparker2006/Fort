@@ -132,6 +132,22 @@ test("walks a real stair ramp up a full storey after the T23 rescale", async ({ 
   expect(r.maxStep).toBeLessThanOrEqual(MOVE.stepHeight + 0.01);
 });
 
+test("stands on a roof apex at half a wall after the T24 peak change", async ({ page }) => {
+  await ready(page);
+  await page.evaluate((v) => {
+    const f = (window as unknown as FortWin).__fort;
+    f.debug.build.roof(0, 0, 0, { material: "wood" });
+    // Drop straight down onto the apex (cell centre) from just above the peak.
+    f.debug.teleport(0.5 * v.cell, v.h / 2 + 0.6, 0.5 * v.cell);
+    f.debug.pump(30); // settle onto the apex
+  }, { cell: CELL_SIZE, h: CELL_HEIGHT });
+
+  const y = await page.evaluate(() => (window as unknown as FortWin).__fort.debug.playerPos().y);
+  // Cell base (0) + half a wall: the apex sits at CELL_HEIGHT / 2 = 1.8.
+  expect(y).toBeGreaterThan(CELL_HEIGHT / 2 - 0.1);
+  expect(y).toBeLessThan(CELL_HEIGHT / 2 + 0.15);
+});
+
 test("running into a wall does not explode or produce NaN", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => {

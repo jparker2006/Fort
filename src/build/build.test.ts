@@ -10,7 +10,7 @@ import {
   roofSlot,
   wallSlot,
 } from "./slots.ts";
-import { pieceColliders, STAIR_STEPS } from "./colliders.ts";
+import { pieceColliders, STAIR_STEPS, ROOF_LAYERS } from "./colliders.ts";
 import { checkPlacement, BUILD_MAX_LEVEL } from "./rules.ts";
 import { CELL_SIZE, CELL_HEIGHT } from "../world/grid.ts";
 import { MOVE } from "../player/movement-tuning.ts";
@@ -66,7 +66,7 @@ describe("collider derivation", () => {
     expect(pieceColliders(wallSlot("z", 0, 0, 0), 0)).toHaveLength(1);
     expect(pieceColliders(floorSlot(0, 0, 0), 0)).toHaveLength(1);
     expect(pieceColliders(stairsSlot(0, 0, 0), 0)).toHaveLength(STAIR_STEPS);
-    expect(pieceColliders(roofSlot(0, 0, 0), 0)).toHaveLength(3);
+    expect(pieceColliders(roofSlot(0, 0, 0), 0)).toHaveLength(ROOF_LAYERS);
   });
 
   it("re-faces stair colliders with rotation", () => {
@@ -90,6 +90,19 @@ describe("collider derivation", () => {
     let maxRise = tops[0]!; // ground (y=0) up to the first tread
     for (let i = 1; i < tops.length; i++) maxRise = Math.max(maxRise, tops[i]! - tops[i - 1]!);
     expect(maxRise).toBeCloseTo(CELL_HEIGHT / STAIR_STEPS, 5);
+    expect(maxRise).toBeLessThan(MOVE.stepHeight - 0.05);
+  });
+
+  it("roof colliders peak at half a wall and rise a margin under step height", () => {
+    // T24: the cone caps at CELL_HEIGHT / 2 (half a wall). Four layers keep each
+    // rise = (CELL_HEIGHT / 2) / ROOF_LAYERS = 0.45, under MOVE.stepHeight (0.6);
+    // three layers would land the rise exactly on the 0.6 boundary.
+    const boxes = pieceColliders(roofSlot(0, 0, 0), 0);
+    const tops = boxes.map((b) => b.maxY).sort((a, b) => a - b);
+    expect(tops[tops.length - 1]!).toBeCloseTo(CELL_HEIGHT / 2, 5); // apex height
+    let maxRise = tops[0]!; // cell base up to the first layer
+    for (let i = 1; i < tops.length; i++) maxRise = Math.max(maxRise, tops[i]! - tops[i - 1]!);
+    expect(maxRise).toBeCloseTo(CELL_HEIGHT / 2 / ROOF_LAYERS, 5);
     expect(maxRise).toBeLessThan(MOVE.stepHeight - 0.05);
   });
 });

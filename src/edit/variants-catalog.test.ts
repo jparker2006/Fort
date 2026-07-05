@@ -93,6 +93,14 @@ describe("variant geometry and colliders agree", () => {
     expect(maxY).toBeCloseTo(CELL_HEIGHT / 3, 5); // low wall reaches H/3
   });
 
+  it("the roof mesh peaks at half a wall above the cell floor (T24)", () => {
+    const g = baseGeometry("roof");
+    g.computeBoundingBox();
+    const bb = g.boundingBox!;
+    expect(bb.max.y).toBeCloseTo(CELL_HEIGHT / 2, 5); // apex at half a wall
+    expect(bb.min.y).toBeCloseTo(0, 5); // base sits on the cell floor
+  });
+
   it("a door leaves the center column open (no collider there)", () => {
     const slot = wallOnEdge(0, 0, 0, "S"); // spans X 0..4 at Z=0
     const door = selectionToVariant("wall", sel(1, 4))!.variant;

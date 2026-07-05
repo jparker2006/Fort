@@ -46,9 +46,12 @@ function stairGeometry(): THREE.BufferGeometry {
 // A four-sided pyramid (cone with 4 radial segments) filling the cell.
 function roofGeometry(): THREE.BufferGeometry {
   const radius = C * 0.72; // flat-to-flat span reaches the cell edges
-  const g = new THREE.ConeGeometry(radius, H, 4);
+  // T24: the cone peaks at half a wall (research: the full-wall claim was
+  // refuted), so its height is CELL_HEIGHT / 2 and its base sits at the cell
+  // floor. The walkable collider envelope in colliders.ts matches this peak.
+  const g = new THREE.ConeGeometry(radius, H / 2, 4);
   g.rotateY(Math.PI / 4); // square base aligned to the cell
-  g.translate(0, H / 2, 0);
+  g.translate(0, H / 4, 0);
   return g;
 }
 

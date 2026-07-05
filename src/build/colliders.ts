@@ -16,8 +16,12 @@ export const FLOOR_THICK = 0.3;
 // margin under the player step-up height (0.6) so ramps are smoothly walkable.
 // (At six steps the tread would be 0.6, sitting exactly on the boundary.)
 export const STAIR_STEPS = 7;
-/** Stacked boxes approximating a roof/cone so it is walkable (refined in T14). */
-const ROOF_LAYERS = 3;
+// Stacked boxes approximating a roof/cone so it is walkable. The cone peaks at
+// half a wall (CELL_HEIGHT / 2, T24), so four layers give a rise of
+// (CELL_HEIGHT / 2) / 4 = 0.45, a margin under the player step-up height (0.6).
+// At three layers the rise would be 0.6, exactly on the boundary (the same trap
+// fixed for stairs), so a player could snag climbing onto the apex.
+export const ROOF_LAYERS = 4;
 
 const C = CELL_SIZE;
 const H = CELL_HEIGHT;
@@ -79,8 +83,10 @@ function roofColliders(cx: number, cy: number, cz: number): Box[] {
   for (let k = 0; k < ROOF_LAYERS; k++) {
     const inset = (k / ROOF_LAYERS) * (C * 0.4);
     const size = C - 2 * inset;
-    const yLo = oy + (k / ROOF_LAYERS) * H;
-    const yHi = oy + ((k + 1) / ROOF_LAYERS) * H;
+    // The stack rises to a half-wall peak (CELL_HEIGHT / 2, T24), so the top
+    // box tops out at oy + H / 2 and a player stands on the apex at base + 1.8.
+    const yLo = oy + (k / ROOF_LAYERS) * (H / 2);
+    const yHi = oy + ((k + 1) / ROOF_LAYERS) * (H / 2);
     boxes.push(makeBox(cxw, (yLo + yHi) / 2, czw, size, yHi - yLo, size));
   }
   return boxes;
