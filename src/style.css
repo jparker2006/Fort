@@ -33,3 +33,156 @@ canvas.fort-canvas {
   height: 100%;
   outline: none;
 }
+
+/* --- HUD (T15) ------------------------------------------------------------
+ * DOM/CSS overlay laid out to mirror Fortnite creative freebuild (crosshair
+ * center, piece tray bottom-right, material info adjacent, mode chip above).
+ * All sizing is viewport-relative so it scales cleanly from 720p to 4K.
+ * Original art only: icons are plain geometric SVG, no copied iconography. */
+
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  --slot: clamp(48px, 5.4vmin, 108px);
+  --gap: clamp(6px, 0.7vmin, 14px);
+  --hud-radius: clamp(6px, 0.7vmin, 12px);
+  font-size: clamp(11px, 1.15vmin, 22px);
+}
+
+#hud-crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(18px, 2.1vmin, 40px);
+  height: clamp(18px, 2.1vmin, 40px);
+  transform: translate(-50%, -50%);
+  color: var(--hud-fg);
+  opacity: 0.9;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.7));
+}
+#hud-crosshair svg {
+  width: 100%;
+  height: 100%;
+  display: none;
+}
+#hud-crosshair[data-mode="build"] .cx-build,
+#hud-crosshair[data-mode="edit"] .cx-edit,
+#hud-crosshair[data-mode="mattock"] .cx-mattock,
+#hud-crosshair[data-mode="movement"] .cx-mattock {
+  display: block;
+}
+
+#hud-corner {
+  position: absolute;
+  right: clamp(14px, 1.6vmin, 40px);
+  bottom: clamp(14px, 1.6vmin, 40px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--gap);
+}
+
+#hud-mode {
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 0.3em 0.8em;
+  border-radius: var(--hud-radius);
+  background: rgba(9, 20, 24, 0.62);
+  border: 1px solid rgba(51, 196, 196, 0.35);
+  color: var(--hud-accent);
+  text-transform: uppercase;
+}
+#hud-mode[data-mode="edit"] {
+  color: #ff9d2e;
+  border-color: rgba(255, 157, 46, 0.4);
+}
+#hud-mode[data-mode="mattock"],
+#hud-mode[data-mode="movement"] {
+  color: var(--hud-copper);
+  border-color: rgba(207, 125, 60, 0.4);
+}
+
+#hud-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--gap);
+}
+
+#hud-tray {
+  display: flex;
+  gap: var(--gap);
+  padding: var(--gap);
+  border-radius: var(--hud-radius);
+  background: rgba(9, 20, 24, 0.55);
+  border: 1px solid rgba(232, 244, 244, 0.12);
+}
+
+.tray-slot {
+  position: relative;
+  width: var(--slot);
+  height: var(--slot);
+  border-radius: calc(var(--hud-radius) * 0.8);
+  background: rgba(18, 49, 58, 0.7);
+  border: 2px solid rgba(232, 244, 244, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.08s ease, background 0.08s ease;
+}
+.tray-slot svg {
+  width: 62%;
+  height: 62%;
+  color: var(--hud-fg);
+  opacity: 0.9;
+}
+.tray-slot .tray-key {
+  position: absolute;
+  left: 0.28em;
+  top: 0.16em;
+  font-size: 0.82em;
+  font-weight: 700;
+  color: var(--hud-fg);
+  opacity: 0.82;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.tray-slot.active {
+  background: rgba(51, 196, 196, 0.28);
+  border-color: var(--hud-accent);
+}
+.tray-slot.active svg {
+  opacity: 1;
+  color: #ffffff;
+}
+
+#hud-material {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2em;
+  padding: var(--gap);
+  border-radius: var(--hud-radius);
+  background: rgba(9, 20, 24, 0.55);
+  border: 1px solid rgba(232, 244, 244, 0.12);
+}
+#hud-material .mat-icon {
+  width: calc(var(--slot) * 0.62);
+  height: calc(var(--slot) * 0.62);
+}
+#hud-material .mat-icon svg {
+  width: 100%;
+  height: 100%;
+  display: none;
+}
+#hud-material[data-material="wood"] .mat-wood,
+#hud-material[data-material="stone"] .mat-stone,
+#hud-material[data-material="metal"] .mat-metal {
+  display: block;
+}
+#hud-material .mat-count {
+  font-weight: 700;
+  font-size: 1.1em;
+  line-height: 1;
+  color: var(--hud-fg);
+}

@@ -13,6 +13,8 @@ import { DestroyController } from "./build/destroy-controller.ts";
 import { EditController } from "./edit/edit-controller.ts";
 import { variantGeometry, variantColliders } from "./edit/variants-catalog.ts";
 import { makeBuildMaterial } from "./build/materials.ts";
+import { Hud } from "./hud/hud.ts";
+import { formatBindLabel } from "./input/bindings.ts";
 import { wallOnEdge, floorSlot, stairsSlot, roofSlot, slotKey, decodeSlotKey } from "./build/slots.ts";
 import type { Material, Rotation, PieceType } from "./build/piece.ts";
 import { bootTurntable } from "./character/turntable.ts";
@@ -84,6 +86,16 @@ const destroyController = new DestroyController(
   () => editController.isEditing(),
 );
 game.add(destroyController);
+
+// HUD overlay (crosshair, piece tray, material and mode indicators). Reads the
+// controllers through a small source interface and pulls bind labels live.
+const hud = new Hud(app, {
+  mode: () => (editController.isEditing() ? "edit" : buildController.getMode()),
+  piece: () => buildController.getPieceType(),
+  material: () => buildController.getMaterial(),
+  bindLabel: (action) => formatBindLabel(input.bindings.get(action)),
+});
+game.add(hud);
 
 // Live action-state overlay (toggle with Backslash).
 const inputOverlay = new DebugInputOverlay(app, input);
@@ -259,6 +271,18 @@ const debug = {
     },
     isEditing(): boolean {
       return editController.isEditing();
+    },
+  },
+  // HUD (T15).
+  hud: {
+    mode(): string {
+      return (document.querySelector("#hud-mode") as HTMLElement | null)?.dataset.mode ?? "";
+    },
+    trayLabel(type: PieceType): string {
+      return hud.trayLabel(type);
+    },
+    material(): string {
+      return (document.querySelector("#hud-material") as HTMLElement | null)?.dataset.material ?? "";
     },
   },
   // Mattock destroy mode (T12).
