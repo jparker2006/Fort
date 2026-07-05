@@ -11,6 +11,7 @@ import { BuildSystem } from "./build/build-system.ts";
 import { BuildController, type BuildMode } from "./build/build-controller.ts";
 import { DestroyController } from "./build/destroy-controller.ts";
 import { EditController } from "./edit/edit-controller.ts";
+import { variantGeometry, variantColliders } from "./edit/variants-catalog.ts";
 import { makeBuildMaterial } from "./build/materials.ts";
 import { wallOnEdge, floorSlot, stairsSlot, roofSlot, slotKey, decodeSlotKey } from "./build/slots.ts";
 import type { Material, Rotation, PieceType } from "./build/piece.ts";
@@ -58,6 +59,7 @@ const build = new BuildSystem(
   player.collision,
   (pool) => cameraRig.addCollider(pool.mesh),
   makeBuildMaterial,
+  { geometry: variantGeometry, colliders: variantColliders },
 );
 game.add(build);
 
@@ -188,6 +190,12 @@ const debug = {
     },
     hpAt(key: string): number {
       return build.model.hpAt(decodeSlotKey(key));
+    },
+    variantAt(key: string): string | null {
+      return build.model.variantAt(decodeSlotKey(key)) ?? null;
+    },
+    applyEdit(key: string, variant: string, rotation?: Rotation): boolean {
+      return build.model.applyEdit(decodeSlotKey(key), variant, rotation as Rotation | undefined);
     },
     count(): number {
       return build.count;

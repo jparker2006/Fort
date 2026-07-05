@@ -37,22 +37,37 @@ export class PoolRegistry {
     private readonly materialFactory: MaterialFactory = baseMaterial,
   ) {}
 
+  // Fallback geometry factory for variants not explicitly registered (edit
+  // variants, T14): resolves geometry from the variant id on first use.
+  private variantResolver?: (id: VariantId) => THREE.BufferGeometry | null;
+
   /** Register the geometry factory for a variant id (called once per variant). */
   registerVariant(id: VariantId, factory: () => THREE.BufferGeometry): void {
     this.geometryFactories.set(id, factory);
+  }
+
+  /** Resolver that builds geometry for any unregistered variant id on demand. */
+  setVariantResolver(fn: (id: VariantId) => THREE.BufferGeometry | null): void {
+    this.variantResolver = fn;
   }
 
   pool(variant: VariantId, material: Material): InstancePool {
     const key = `${variant}:${material}`;
     let pool = this.pools.get(key);
     if (!pool) {
-      const factory = this.geometryFactories.get(variant);
-      if (!factory) throw new Error(`No geometry registered for variant "${variant}"`);
-      pool = new InstancePool(this.scene, key, factory(), this.materialFactory(material));
+      pool = new InstancePool(this.scene, key, this.resolveGeometry(variant), this.materialFactory(material));
       this.pools.set(key, pool);
       this.onPoolCreated?.(pool);
     }
     return pool;
+  }
+
+  private resolveGeometry(variant: VariantId): THREE.BufferGeometry {
+    const factory = this.geometryFactories.get(variant);
+    if (factory) return factory();
+    const resolved = this.variantResolver?.(variant);
+    if (resolved) return resolved;
+    throw new Error(`No geometry registered for variant "${variant}"`);
   }
 
   /** Number of live pools; equals the build-piece draw call count. */
@@ -161,13 +176,15 @@ export class BuildModel {
    * hit points are preserved. Returns false if nothing is there. (Full T14 use;
    * T13 confirm calls this with the resolved variant.)
    */
-  applyEdit(slot: Slot, variant: VariantId): boolean {
+  applyEdit(slot: Slot, variant: VariantId, rotation?: Rotation): boolean {
     const key = slotKey(slot);
     const piece = this.pieces.get(key);
     if (!piece) return false;
-    if (piece.variant === variant) return true;
+    const newRot = rotation ?? piece.rotation;
+    if (piece.variant === variant && piece.rotation === newRot) return true;
     this.detachInstance(piece);
-    const attached = this.attachInstance(key, slot, piece.material, piece.rotation, variant);
+    piece.rotation = newRot;
+    const attached = this.attachInstance(key, slot, piece.material, newRot, variant);
     piece.variant = attached.variant;
     piece.poolKey = attached.poolKey;
     piece.instanceIndex = attached.instanceIndex;

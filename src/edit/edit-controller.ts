@@ -19,7 +19,7 @@ import { CELL_SIZE } from "../world/grid.ts";
 import { DEFAULT_GAMEPLAY, type GameplaySettings } from "../settings/gameplay.ts";
 import { EditOverlay } from "./edit-overlay.ts";
 import { faceFrame, rayTile, type FaceFrame } from "./edit-grid.ts";
-import { variantToSelection, selectionToVariant } from "./edit-catalog.ts";
+import { variantToSelection, selectionToVariant } from "./variants-catalog.ts";
 
 /** Edit reach along the aim ray from the camera (matches the Mattock reach). */
 export const EDIT_REACH = 9;
@@ -99,7 +99,7 @@ export class EditController implements System {
     this.slot = hit.slot;
     this.type = pieceType(hit.slot);
     this.frame = faceFrame(hit.slot);
-    const variant = this.model.variantAt(hit.slot) ?? "full";
+    const variant = this.model.variantAt(hit.slot) ?? this.type;
     this.baseline = variantToSelection(this.type, variant);
     this.selection = new Set(this.baseline);
     this.hovered = -1;
@@ -161,8 +161,8 @@ export class EditController implements System {
 
   private exit(apply: boolean): void {
     if (apply && this.slot) {
-      const variant = selectionToVariant(this.type, this.selection);
-      if (variant !== null) this.model.applyEdit(this.slot, variant);
+      const choice = selectionToVariant(this.type, this.selection);
+      if (choice !== null) this.model.applyEdit(this.slot, choice.variant, choice.rotation);
     }
     this.editing = false;
     this.slot = null;

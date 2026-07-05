@@ -12,6 +12,15 @@ import { PIECE_TYPES, MATERIALS, type Material, type Rotation, type Slot } from 
 import { CELL_MIN, CELL_MAX } from "../world/grid.ts";
 import { wallOnEdge, floorSlot, stairsSlot, roofSlot } from "./slots.ts";
 import type { Validity } from "./rules.ts";
+import type { Box } from "../player/collision.ts";
+
+// Edit-variant support (T14), injected so the build layer does not depend on the
+// edit layer. `geometry` resolves an edit variant id to a mesh; `colliders`
+// resolves it to a world collider set.
+export interface EditVariantSupport {
+  geometry(id: string): import("three").BufferGeometry | null;
+  colliders(slot: Slot, rotation: Rotation, id: string): Box[];
+}
 
 export class BuildSystem implements System {
   readonly name = "build";
@@ -26,13 +35,19 @@ export class BuildSystem implements System {
     private readonly collision: CollisionWorld,
     onPoolCreated?: (pool: InstancePool) => void,
     materialFactory?: MaterialFactory,
+    editVariants?: EditVariantSupport,
   ) {
     this.registry = new PoolRegistry(scene, materialFactory);
     if (onPoolCreated) this.registry.onPoolCreated = onPoolCreated;
     for (const type of PIECE_TYPES) {
       this.registry.registerVariant(fullVariant(type), () => baseGeometry(type));
     }
-    this.model = new BuildModel(this.registry, this.collision);
+    if (editVariants) this.registry.setVariantResolver((id) => editVariants.geometry(id));
+    this.model = new BuildModel(
+      this.registry,
+      this.collision,
+      editVariants ? (slot, rotation, variant) => editVariants.colliders(slot, rotation, variant) : undefined,
+    );
   }
 
   init(_game: Game): void {

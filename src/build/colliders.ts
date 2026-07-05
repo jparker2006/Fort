@@ -11,8 +11,10 @@ import { slotPlacement } from "./slots.ts";
 export const WALL_THICK = 0.3;
 export const FLOOR_THICK = 0.3;
 
-/** Steps a full ramp is discretized into for collision (and its stepped mesh). */
-export const STAIR_STEPS = 4;
+// Steps a full ramp is discretized into for collision (and its stepped mesh).
+// Six steps over the 3-unit cell height gives 0.5 per tread, within the player
+// step-up height (0.6) so ramps are smoothly walkable.
+export const STAIR_STEPS = 6;
 /** Stacked boxes approximating a roof/cone so it is walkable (refined in T14). */
 const ROOF_LAYERS = 3;
 
