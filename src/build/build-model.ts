@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { CollisionWorld, type Box, type BoxHandle } from "../player/collision.ts";
 import type { Material, Rotation, Slot, PieceType } from "./piece.ts";
 import { pieceType } from "./piece.ts";
-import { slotKey, slotPlacement, type SlotKey } from "./slots.ts";
+import { slotKey, decodeSlotKey, slotPlacement, type SlotKey } from "./slots.ts";
 import { pieceColliders } from "./colliders.ts";
 import { checkPlacement, type Validity } from "./rules.ts";
 import { InstancePool } from "./instance-pool.ts";
@@ -48,7 +48,7 @@ export class PoolRegistry {
     if (!pool) {
       const factory = this.geometryFactories.get(variant);
       if (!factory) throw new Error(`No geometry registered for variant "${variant}"`);
-      pool = new InstancePool(this.scene, factory(), this.materialFactory(material));
+      pool = new InstancePool(this.scene, key, factory(), this.materialFactory(material));
       this.pools.set(key, pool);
       this.onPoolCreated?.(pool);
     }
@@ -78,6 +78,15 @@ interface StoredPiece {
   poolKey: string;
   instanceIndex: number;
   colliders: BoxHandle[];
+  hp: number;
+}
+
+// Material-scaled hit points, tuned so wood breaks in 2 Mattock swings (like
+// Fortnite's pickaxe vs. fresh wood) with stone and metal progressively tougher.
+const MATERIAL_HP: Record<Material, number> = { wood: 2, stone: 3, metal: 5 };
+
+export function hitPointsFor(material: Material): number {
+  return MATERIAL_HP[material];
 }
 
 export interface PlaceOptions {
@@ -149,9 +158,51 @@ export class BuildModel {
     const key = slotKey(slot);
     this.pieces.set(key, {
       slot, material, rotation, variant, poolKey, instanceIndex, colliders,
+      hp: MATERIAL_HP[material],
     });
     this.slotsFor(poolKey)[instanceIndex] = key;
     return true;
+  }
+
+  /** Apply Mattock damage to a piece; destroys it when hit points reach zero. */
+  damageAt(slot: Slot, amount = 1): "destroyed" | "damaged" | "none" {
+    const piece = this.pieces.get(slotKey(slot));
+    if (!piece) return "none";
+    piece.hp -= amount;
+    if (piece.hp <= 0) {
+      this.removeAt(slot);
+      return "destroyed";
+    }
+    return "damaged";
+  }
+
+  /**
+   * Nearest build piece the ray hits within maxDistance, or null. Raycasts the
+   * instanced pool meshes (sorted near-to-far, so occluded pieces are never
+   * returned) and maps the hit instance back to its slot. The island ground is
+   * not a pool, so it is never destructible.
+   */
+  raycastPiece(
+    raycaster: THREE.Raycaster,
+    maxDistance: number,
+  ): { key: SlotKey; slot: Slot; distance: number } | null {
+    raycaster.far = maxDistance;
+    const hits = raycaster.intersectObjects(this.pools.meshes(), false);
+    for (const h of hits) {
+      if (h.instanceId == null) continue;
+      const poolId = h.object.userData.poolId as string | undefined;
+      if (!poolId) continue;
+      const key = this.poolSlots.get(poolId)?.[h.instanceId];
+      if (key && this.pieces.has(key)) {
+        return { key, slot: decodeSlotKey(key), distance: h.distance };
+      }
+    }
+    return null;
+  }
+
+  /** Remaining hit points at a slot (test/HUD helper). */
+  hpAt(slot: Slot): number {
+    return this.pieces.get(slotKey(slot))?.hp ?? 0;
   }
 
   /** Remove the piece at a slot. Returns true if one was there. */

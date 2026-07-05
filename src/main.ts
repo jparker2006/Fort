@@ -9,6 +9,7 @@ import { CameraRig } from "./player/camera-rig.ts";
 import { makeBox } from "./player/collision.ts";
 import { BuildSystem } from "./build/build-system.ts";
 import { BuildController, type BuildMode } from "./build/build-controller.ts";
+import { DestroyController } from "./build/destroy-controller.ts";
 import { makeBuildMaterial } from "./build/materials.ts";
 import { wallOnEdge, floorSlot, stairsSlot, roofSlot, slotKey, decodeSlotKey } from "./build/slots.ts";
 import type { Material, Rotation, PieceType } from "./build/piece.ts";
@@ -63,6 +64,16 @@ game.add(build);
 // per-frame update reads the freshly integrated aim ray.
 const buildController = new BuildController(input, cameraRig, player, build.model);
 game.add(buildController);
+
+// Mattock destroy mode: swings when the controller's mode is "mattock".
+const destroyController = new DestroyController(
+  input,
+  cameraRig,
+  player,
+  build.model,
+  () => buildController.getMode(),
+);
+game.add(destroyController);
 
 // Live action-state overlay (toggle with Backslash).
 const inputOverlay = new DebugInputOverlay(app, input);
@@ -167,6 +178,9 @@ const debug = {
     materialAt(key: string): Material | null {
       return build.model.get(decodeSlotKey(key))?.material ?? null;
     },
+    hpAt(key: string): number {
+      return build.model.hpAt(decodeSlotKey(key));
+    },
     count(): number {
       return build.count;
     },
@@ -217,6 +231,18 @@ const debug = {
         valid: buildController.isValid(),
         ghost: buildController.ghostColorState(),
       };
+    },
+  },
+  // Mattock destroy mode (T12).
+  destroy: {
+    swing(): string {
+      return destroyController.swing();
+    },
+    liveParticles(): number {
+      return destroyController.liveParticles();
+    },
+    burst(n: number): void {
+      destroyController.debugBurst(n);
     },
   },
 };

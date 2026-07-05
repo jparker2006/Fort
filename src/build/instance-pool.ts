@@ -14,6 +14,7 @@ export class InstancePool {
 
   constructor(
     private readonly scene: THREE.Scene,
+    private readonly id: string,
     private readonly geometry: THREE.BufferGeometry,
     private readonly material: THREE.Material,
     initialCapacity = INITIAL_CAPACITY,
@@ -28,6 +29,9 @@ export class InstancePool {
     mesh.count = this.count;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+    // Stamp the pool id so a raycast hit maps back to the owning pool (and, with
+    // the instanceId, to the placed slot) even after a grow swaps the mesh.
+    mesh.userData.poolId = this.id;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     // A frustum cull on the shared bounding sphere would drop the whole batch;
     // pieces span the island, so keep the batch always drawn (T20 tightens this).
