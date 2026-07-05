@@ -7,6 +7,7 @@ import { DebugInputOverlay } from "./input/debug-input-overlay.ts";
 import { Player } from "./player/player.ts";
 import { CameraRig } from "./player/camera-rig.ts";
 import { makeBox } from "./player/collision.ts";
+import { CELL_MIN, CELL_MAX } from "./world/grid.ts";
 import { BuildSystem } from "./build/build-system.ts";
 import { BuildController, type BuildMode } from "./build/build-controller.ts";
 import { DestroyController } from "./build/destroy-controller.ts";
@@ -267,6 +268,34 @@ const debug = {
     },
     rendererDrawCalls(): number {
       return game.renderer.info.render.calls;
+    },
+  },
+  // Performance stress + probes (T20).
+  perf: {
+    stress(n: number): number {
+      return build.debugStress(n);
+    },
+    poolGrows(): number {
+      return build.poolGrows;
+    },
+    drawCalls(): number {
+      return game.renderer.info.render.calls;
+    },
+    buildPools(): number {
+      return build.drawCalls;
+    },
+    nearComparisons(): number {
+      return player.collision.lastNearComparisons;
+    },
+    // Place n wall pieces of one material into a single pool (turbo-run shape).
+    placeRow(n: number): number {
+      let count = 0;
+      for (let i = 0; i < n; i++) {
+        const cx = CELL_MIN + (i % (CELL_MAX - CELL_MIN));
+        const cz = CELL_MIN + Math.floor(i / (CELL_MAX - CELL_MIN));
+        if (build.place(wallOnEdge(cx, 0, cz, "W"), { material: "wood" })) count++;
+      }
+      return count;
     },
   },
   // Build-mode targeting/ghost/placement (T10, T11).

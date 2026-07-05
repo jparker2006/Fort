@@ -5,12 +5,15 @@
 
 import * as THREE from "three";
 
-const INITIAL_CAPACITY = 64;
+// Pre-warmed capacity: comfortably above a 100-piece turbo run into one pool, so
+// a rush never triggers a mid-frame reallocation spike (T20).
+const INITIAL_CAPACITY = 256;
 
 export class InstancePool {
   mesh: THREE.InstancedMesh;
   private capacity: number;
   private count = 0;
+  private grows = 0;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -76,7 +79,13 @@ export class InstancePool {
     return moved;
   }
 
+  /** Times this pool has reallocated (perf test helper; 0 means pre-warmed). */
+  get growCount(): number {
+    return this.grows;
+  }
+
   private grow(): void {
+    this.grows += 1;
     const bigger = this.capacity * 2;
     const next = this.makeMesh(bigger);
     const m = new THREE.Matrix4();

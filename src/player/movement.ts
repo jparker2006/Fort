@@ -23,6 +23,13 @@ export class MovementController {
   private coyote = 0;
   private buffer = 0;
 
+  // Reused scratch: the near-query result for this step and the query AABB. No
+  // per-step allocation in the collision hot path.
+  private readonly nearBoxes: Box[] = [];
+  private readonly queryBox: Box = { minX: 0, minY: 0, minZ: 0, maxX: 0, maxY: 0, maxZ: 0 };
+  private readonly pbScratch: Box = { minX: 0, minY: 0, minZ: 0, maxX: 0, maxY: 0, maxZ: 0 };
+  private readonly standScratch: Box = { minX: 0, minY: 0, minZ: 0, maxX: 0, maxY: 0, maxZ: 0 };
+
   constructor(
     private readonly state: PlayerState,
     private readonly input: MovementInput,
@@ -32,6 +39,11 @@ export class MovementController {
 
   step(dt: number): void {
     const s = this.state;
+
+    // Gather the boxes near the player once for this whole step (expanded to
+    // cover the swept motion plus step-up reach). moveY/moveHorizontal/canStand
+    // all iterate this small set instead of every box in the world.
+    this.refreshNear(dt);
 
     // --- Intent ---
     const f = (this.input.isDown("moveForward") ? 1 : 0) - (this.input.isDown("moveBack") ? 1 : 0);
@@ -105,17 +117,34 @@ export class MovementController {
     s.position.z = clampToIsland(s.position.z);
   }
 
+  private refreshNear(dt: number): void {
+    const s = this.state;
+    const r = PLAYER.radius;
+    const m = MOVE.stepHeight + 1; // margin: step-up reach + piece half-thickness
+    const dx = Math.abs(s.velocity.x * dt) + r + m;
+    const dy = Math.abs(s.velocity.y * dt) + m;
+    const dz = Math.abs(s.velocity.z * dt) + r + m;
+    const q = this.queryBox;
+    q.minX = s.position.x - dx;
+    q.maxX = s.position.x + dx;
+    q.minY = s.position.y - dy;
+    q.maxY = s.position.y + s.height + dy;
+    q.minZ = s.position.z - dz;
+    q.maxZ = s.position.z + dz;
+    this.world.near(q, this.nearBoxes);
+  }
+
   private playerBox(): Box {
     const s = this.state;
     const r = PLAYER.radius;
-    return {
-      minX: s.position.x - r,
-      minY: s.position.y,
-      minZ: s.position.z - r,
-      maxX: s.position.x + r,
-      maxY: s.position.y + s.height,
-      maxZ: s.position.z + r,
-    };
+    const b = this.pbScratch;
+    b.minX = s.position.x - r;
+    b.minY = s.position.y;
+    b.minZ = s.position.z - r;
+    b.maxX = s.position.x + r;
+    b.maxY = s.position.y + s.height;
+    b.maxZ = s.position.z + r;
+    return b;
   }
 
   private moveY(dy: number): void {
@@ -136,7 +165,7 @@ export class MovementController {
     }
 
     const pb = this.playerBox();
-    for (const box of this.world.all()) {
+    for (const box of this.nearBoxes) {
       // Horizontal overlap required to interact vertically.
       if (pb.maxX <= box.minX || pb.minX >= box.maxX) continue;
       if (pb.maxZ <= box.minZ || pb.minZ >= box.maxZ) continue;
@@ -171,7 +200,7 @@ export class MovementController {
     const s = this.state;
     s.position[axis] += delta;
 
-    for (const box of this.world.all()) {
+    for (const box of this.nearBoxes) {
       const pb = this.playerBox();
       if (!boxesOverlap(pb, box)) continue;
 
@@ -199,15 +228,14 @@ export class MovementController {
   // intersecting the body? Ignores the box being stepped onto.
   private canStandAt(x: number, z: number, footY: number, ignore: Box): boolean {
     const r = PLAYER.radius;
-    const test: Box = {
-      minX: x - r,
-      minY: footY + EPS,
-      minZ: z - r,
-      maxX: x + r,
-      maxY: footY + this.state.height,
-      maxZ: z + r,
-    };
-    for (const box of this.world.all()) {
+    const test = this.standScratch;
+    test.minX = x - r;
+    test.minY = footY + EPS;
+    test.minZ = z - r;
+    test.maxX = x + r;
+    test.maxY = footY + this.state.height;
+    test.maxZ = z + r;
+    for (const box of this.nearBoxes) {
       if (box === ignore) continue;
       if (boxesOverlap(test, box)) return false;
     }

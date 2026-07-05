@@ -107,6 +107,41 @@ export class BuildSystem implements System {
     return placed;
   }
 
+  /**
+   * Perf stress (T20): scatter `n` mixed ground pieces, then apply a spread of
+   * edit variants so every base and edit-variant pool is exercised. Returns the
+   * number of pieces placed.
+   */
+  debugStress(n: number): number {
+    const placed = this.debugScatter(n);
+    // Collect slots first (applyEdit mutates piece records as we go).
+    const slots: Slot[] = [];
+    this.model.forEachMapPiece((slot) => slots.push(slot));
+    slots.forEach((slot, i) => {
+      if (i % 3 !== 0) return; // edit roughly a third
+      switch (slot.kind) {
+        case "wall":
+          this.model.applyEdit(slot, "wall#7"); // low wall
+          break;
+        case "floor":
+          this.model.applyEdit(slot, `floor#${0xe}`); // corner hole
+          break;
+        case "stairs":
+          this.model.applyEdit(slot, "stairs#w"); // half-width
+          break;
+        case "roof":
+          this.model.applyEdit(slot, "roof#h", 0); // half roof
+          break;
+      }
+    });
+    return placed;
+  }
+
+  /** Total pool reallocations (perf test helper). */
+  get poolGrows(): number {
+    return this.model.totalGrows;
+  }
+
   private randomSlot(cx: number, cz: number): Slot {
     const pick = Math.floor(this.rand() * 4);
     switch (pick) {

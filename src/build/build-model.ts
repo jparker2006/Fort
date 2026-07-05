@@ -75,6 +75,13 @@ export class PoolRegistry {
     return this.pools.size;
   }
 
+  /** Total reallocations across all pools (perf test helper; 0 == pre-warmed). */
+  get totalGrows(): number {
+    let n = 0;
+    for (const p of this.pools.values()) n += p.growCount;
+    return n;
+  }
+
   meshes(): THREE.InstancedMesh[] {
     return [...this.pools.values()].map((p) => p.mesh);
   }
@@ -305,6 +312,11 @@ export class BuildModel {
   /** Live draw call count for build pieces (one per active pool). */
   get poolCount(): number {
     return this.pools.poolCount;
+  }
+
+  /** Total pool reallocations (perf test helper; 0 == pre-warmed). */
+  get totalGrows(): number {
+    return this.pools.totalGrows;
   }
 
   private slotsFor(poolKey: string): SlotKey[] {

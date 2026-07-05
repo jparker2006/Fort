@@ -352,7 +352,16 @@ Notes on batching:
 - No per-frame allocations in the movement plus targeting hot path (verified by a heap-delta sample during the run).
 - Turbo building 100 pieces in a row causes no frame spikes over 8 ms attributable to pool growth (pools pre-warmed).
 
-**Verification note**: _to fill in when implemented_
+**Verification note**: Done. The instancing architecture (per-`(variant, material)` `InstancePool`, in since T09) was hardened rather than rewritten, and every acceptance criterion is asserted by deterministic proxies rather than wall-clock fps.
+
+Reference-environment caveat: this runs headless under swiftshader (software WebGL), which cannot reach 60 fps wall-clock and starves rAF, so a literal "1% low >= 55 fps" assertion would measure the emulator, not the engine. Per the T20 plan the perf test therefore asserts the *causes* of good frame time deterministically, via `game.debug.pump` fixed frames and `renderer.info`:
+
+- **Draw calls < 80 with 600 mixed pieces** — `debug.perf.stress(600)` scatters all four piece types x three materials plus a spread of edit variants (wall window, floor hole, stairs re-face, half roof) across ~1/3 of them; `renderer.info.render.calls` stays under 80 because every piece renders through its instanced pool. Pool count `<= 40` (base 4x3 = 12 plus the handful of edit-variant pools). Evidence: `test-results/evidence/t20-stress.png`.
+- **Collision stays O(nearby)** — `src/player/collision.ts` gained a 2D spatial hash (bucket size 8). A movement step with 600 pieces (~1000 colliders) in the world examines `nearComparisons < 80` boxes via `CollisionWorld.near(query, out)`, not the whole set. Verified in both `tests/perf.spec.ts` and unit `src/player/collision.test.ts` (4 cases: region-limited return, output-array reuse, bucket removal, multi-bucket dedupe).
+- **No per-frame allocation in the hot path** — `src/player/movement.ts` reuses `nearBoxes`/`queryBox`/`pbScratch`/`standScratch` buffers; `near()` writes into a reused out-array and dedupes with a reused visited set. Heap delta over 300 sustained-movement frames through 200 pieces stays under 4 MB (`performance.memory`; wide bound absorbs GC/unrelated allocation). Skips gracefully where `performance.memory` is absent.
+- **Turbo build causes no pool-growth spike** — pools pre-warm to `INITIAL_CAPACITY = 256`; `debug.perf.placeRow(100)` places 100 pieces and `debug.perf.poolGrows` is unchanged (zero reallocations), so no growth-attributable frame spike.
+
+Tests: `tests/perf.spec.ts` (4/4) plus the collision/movement/build/destroy/edit-variant regression (20/20) green; `src/player/collision.test.ts` in the unit suite (98 passed). `npm run check` clean.
 
 ### T21: Playwright visual verification suite
 
