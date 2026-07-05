@@ -6,6 +6,7 @@ import { InputSystem } from "./input/input-system.ts";
 import { DebugInputOverlay } from "./input/debug-input-overlay.ts";
 import { Player } from "./player/player.ts";
 import { CameraRig } from "./player/camera-rig.ts";
+import { makeBox } from "./player/collision.ts";
 
 // T05 bootstrap: island, input, player capsule placeholder, and the
 // third-person camera rig. Movement (T06) and the real character (T07) build
@@ -29,6 +30,9 @@ game.add(player);
 const cameraRig = new CameraRig(input, player);
 game.add(cameraRig);
 
+// Movement is camera-relative: feed the camera yaw to the player.
+player.setYawSource(() => cameraRig.yaw);
+
 // The spring arm collides against the ground so the camera never dips below it.
 const ground = game.scene.getObjectByName("ground");
 if (ground) cameraRig.addCollider(ground);
@@ -51,6 +55,34 @@ const debug = {
     box.name = "debug-box";
     game.scene.add(box);
     cameraRig.addCollider(box);
+  },
+  // Place a solid collision box (mesh + collider + camera collider). Center at
+  // (x,y,z), size (w,h,d). Used to test jump-onto, step-up, and blocking.
+  placeSolid(x: number, y: number, z: number, w: number, h: number, d: number): void {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(w, h, d),
+      new THREE.MeshStandardMaterial({ color: 0x9a7b53 }),
+    );
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    game.scene.add(mesh);
+    player.collision.add(makeBox(x, y, z, w, h, d));
+    cameraRig.addCollider(mesh);
+  },
+  playerPos(): { x: number; y: number; z: number } {
+    return { x: player.state.position.x, y: player.state.position.y, z: player.state.position.z };
+  },
+  onGround(): boolean {
+    return player.state.onGround;
+  },
+  teleport(x: number, y: number, z: number): void {
+    player.state.position.set(x, y, z);
+    player.state.velocity.set(0, 0, 0);
+    player.state.onGround = y <= 0;
+  },
+  setYaw(yaw: number): void {
+    cameraRig.yaw = yaw;
   },
   aimGroundHit(): { x: number; z: number } | null {
     const ray = cameraRig.getAimRay();

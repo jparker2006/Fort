@@ -50,6 +50,14 @@ test("camera is behind and to the right of the player (over the shoulder)", asyn
 
 test("spring arm pulls the camera in when a wall is behind the player", async ({ page }) => {
   await ready(page);
+  // Put the player at the origin so a box at +Z sits between the pivot and the
+  // camera (yaw 0 places the camera behind the player at +Z).
+  await page.evaluate(() => {
+    const f = (window as unknown as FortWin).__fort;
+    f.debug.setYaw(0);
+    f.debug.teleport(0, 0, 0);
+    f.debug.pump(3);
+  });
   const before = await page.evaluate(() => (window as unknown as FortWin).__fort.cameraRig.distanceToPivot());
 
   // Place a wall directly behind the player, between the pivot and the camera.
