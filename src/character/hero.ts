@@ -228,7 +228,15 @@ function computeSkinWeights(geo: THREE.BufferGeometry): void {
   geo.setAttribute("skinWeight", new THREE.Float32BufferAttribute(skinWeight, 4));
 }
 
-function buildBones(): { root: THREE.Bone; order: THREE.Bone[]; map: Map<string, THREE.Bone> } {
+export interface HeroSkeleton {
+  root: THREE.Bone;
+  order: THREE.Bone[];
+  map: Map<string, THREE.Bone>;
+}
+
+// Build just the bone hierarchy (no mesh, no texture). Usable in Node for
+// animation math tests where the WebGL/canvas parts are unavailable.
+export function buildHeroSkeleton(): HeroSkeleton {
   const wp = worldPositions();
   const map = new Map<string, THREE.Bone>();
   const order: THREE.Bone[] = [];
@@ -305,7 +313,7 @@ export function buildHero(): Hero {
   mesh.name = "hero-mesh";
   mesh.castShadow = true;
 
-  const { root, order, map } = buildBones();
+  const { root, order, map } = buildHeroSkeleton();
   mesh.add(root);
   mesh.updateMatrixWorld(true);
 

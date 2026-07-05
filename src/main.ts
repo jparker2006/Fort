@@ -102,6 +102,22 @@ const debug = {
   pump(frames = 1): void {
     for (let i = 0; i < frames; i++) game.stepForTest();
   },
+  setAimMode(v: boolean): void {
+    player.aimMode = v;
+  },
+  buildSwing(): void {
+    player.triggerBuildSwing();
+  },
+  animState(): string {
+    return player.animState;
+  },
+  bodyYaw(): number {
+    return player.state.yaw;
+  },
+  boneRotX(name: string): number {
+    const b = player.getHero().bones.get(name);
+    return b ? b.rotation.x : 0;
+  },
 };
 
 (

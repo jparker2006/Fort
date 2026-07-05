@@ -179,7 +179,7 @@ Notes on batching:
 - Build-swing timing lines up with piece placement moment.
 - STOP: build delivered for animation feel approval before Batch 5.
 
-**Verification note**: _to fill in when implemented_
+**Verification note**: Done (feel-gate waived, self-verified against automated targets). `clips.ts` authors procedural keyframe clips (idle breathing, run, sprint with lean and stronger arm pump, crouchIdle, crouchWalk, jump launch/air/land, and an upper-body buildSwing). `AnimationController` runs an AnimationMixer state machine with 0.15s crossfades, scales locomotion timeScale by speed / calibrated reference so the planted foot tracks the ground, and plays buildSwing additively so it layers over locomotion. `Player` drives state from movement and handles facing: body turns toward the movement direction in free mode and toward the camera in aim mode (capped turn rate, no snap), with a spine twist overlay in aim mode. Unit tests `animation.test.ts` (4): mid-stance foot speed matches body speed within 15% (imperceptible slide), foot cadence scales with speed, all seven clips exist with tracks, and buildSwing keys the right arm but not the legs. Playwright `animation.spec.ts` (5): idle->run->sprint->idle transitions with no errors (screenshot `t08-run.png`), jump enters the airborne state and recovers on landing, crouch enters crouchIdle then crouchWalk (`t08-crouch.png`), buildSwing overlays while the locomotion state stays "run" and the leg bone keeps moving (`t08-buildswing.png`), and aim mode faces the camera within 0.1 rad while free mode faces the movement direction (`t08-aimface.png`). Full suite: 47 unit + 28 Playwright green.
 
 ### T09: Build grid model and piece data core
 
