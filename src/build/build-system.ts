@@ -6,7 +6,7 @@
 import type { Game, System } from "../core/game.ts";
 import type { CollisionWorld } from "../player/collision.ts";
 import type { InstancePool } from "./instance-pool.ts";
-import { PoolRegistry, BuildModel, fullVariant, type PlaceOptions } from "./build-model.ts";
+import { PoolRegistry, BuildModel, fullVariant, type PlaceOptions, type MaterialFactory } from "./build-model.ts";
 import { baseGeometry } from "./variants.ts";
 import { PIECE_TYPES, MATERIALS, type Material, type Rotation, type Slot } from "./piece.ts";
 import { CELL_MIN, CELL_MAX } from "../world/grid.ts";
@@ -25,8 +25,9 @@ export class BuildSystem implements System {
     scene: import("three").Scene,
     private readonly collision: CollisionWorld,
     onPoolCreated?: (pool: InstancePool) => void,
+    materialFactory?: MaterialFactory,
   ) {
-    this.registry = new PoolRegistry(scene);
+    this.registry = new PoolRegistry(scene, materialFactory);
     if (onPoolCreated) this.registry.onPoolCreated = onPoolCreated;
     for (const type of PIECE_TYPES) {
       this.registry.registerVariant(fullVariant(type), () => baseGeometry(type));

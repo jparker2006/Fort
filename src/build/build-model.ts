@@ -21,13 +21,21 @@ export function fullVariant(type: PieceType): VariantId {
   return type;
 }
 
+/** Factory turning a material id into a THREE material for a pool. */
+export type MaterialFactory = (material: Material) => THREE.Material;
+
 /** Lazily creates and caches an InstancePool per (variant geometry, material). */
 export class PoolRegistry {
   private readonly pools = new Map<string, InstancePool>();
   private readonly geometryFactories = new Map<VariantId, () => THREE.BufferGeometry>();
   onPoolCreated?: (pool: InstancePool) => void;
 
-  constructor(private readonly scene: THREE.Scene) {}
+  // Defaults to the flat, Node-safe material; the browser injects the
+  // procedural wood/stone/metal factory (T11).
+  constructor(
+    private readonly scene: THREE.Scene,
+    private readonly materialFactory: MaterialFactory = baseMaterial,
+  ) {}
 
   /** Register the geometry factory for a variant id (called once per variant). */
   registerVariant(id: VariantId, factory: () => THREE.BufferGeometry): void {
@@ -40,7 +48,7 @@ export class PoolRegistry {
     if (!pool) {
       const factory = this.geometryFactories.get(variant);
       if (!factory) throw new Error(`No geometry registered for variant "${variant}"`);
-      pool = new InstancePool(this.scene, factory(), baseMaterial(material));
+      pool = new InstancePool(this.scene, factory(), this.materialFactory(material));
       this.pools.set(key, pool);
       this.onPoolCreated?.(pool);
     }

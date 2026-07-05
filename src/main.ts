@@ -8,7 +8,8 @@ import { Player } from "./player/player.ts";
 import { CameraRig } from "./player/camera-rig.ts";
 import { makeBox } from "./player/collision.ts";
 import { BuildSystem } from "./build/build-system.ts";
-import { BuildController } from "./build/build-controller.ts";
+import { BuildController, type BuildMode } from "./build/build-controller.ts";
+import { makeBuildMaterial } from "./build/materials.ts";
 import { wallOnEdge, floorSlot, stairsSlot, roofSlot, slotKey, decodeSlotKey } from "./build/slots.ts";
 import type { Material, Rotation, PieceType } from "./build/piece.ts";
 import { bootTurntable } from "./character/turntable.ts";
@@ -50,8 +51,11 @@ if (ground) cameraRig.addCollider(ground);
 
 // Build system: pool meshes join the camera spring-arm colliders as they are
 // created so the camera never clips through placed pieces.
-const build = new BuildSystem(game.scene, player.collision, (pool) =>
-  cameraRig.addCollider(pool.mesh),
+const build = new BuildSystem(
+  game.scene,
+  player.collision,
+  (pool) => cameraRig.addCollider(pool.mesh),
+  makeBuildMaterial,
 );
 game.add(build);
 
@@ -160,6 +164,9 @@ const debug = {
     placeSlotKey(key: string, opts: BuildDebugOpts = {}): boolean {
       return build.place(decodeSlotKey(key), opts);
     },
+    materialAt(key: string): Material | null {
+      return build.model.get(decodeSlotKey(key))?.material ?? null;
+    },
     count(): number {
       return build.count;
     },
@@ -173,16 +180,34 @@ const debug = {
       return game.renderer.info.render.calls;
     },
   },
-  // Build-mode targeting/ghost (T10).
+  // Build-mode targeting/ghost/placement (T10, T11).
   target: {
     setActive(v: boolean): void {
       buildController.setActive(v);
     },
+    setMode(m: BuildMode): void {
+      buildController.setMode(m);
+    },
+    mode(): BuildMode {
+      return buildController.getMode();
+    },
     setPiece(type: PieceType): void {
       buildController.setPieceType(type);
     },
+    piece(): PieceType {
+      return buildController.getPieceType();
+    },
     cycleRotation(): void {
       buildController.cycleRotation();
+    },
+    cycleMaterial(): void {
+      buildController.cycleMaterial();
+    },
+    material(): Material {
+      return buildController.getMaterial();
+    },
+    setTurbo(on: boolean): void {
+      buildController.gameplay.turboBuild = on;
     },
     info(): { key: string | null; rotation: number | null; valid: boolean; ghost: string } {
       const t = buildController.getTarget();

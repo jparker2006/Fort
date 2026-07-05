@@ -1,7 +1,8 @@
-// Build-mode controller: while active, it resolves the target slot from the
-// camera aim ray every frame, colours the ghost by placement validity, and
-// cycles stair/roof rotation on the rotate bind. Placement itself (primary
-// fire, turbo, materials) lands in T11; this ticket is targeting + preview.
+// Build-mode controller: drives the mode state machine (movement / build /
+// mattock), resolves the target slot from the camera aim ray while building,
+// colours the ghost by validity, cycles rotation and material, and places
+// pieces on primary fire (single tap or held turbo build). Destroy in mattock
+// mode is handled by T12; this controller owns the placement half.
 
 import * as THREE from "three";
 import type { Game, System } from "../core/game.ts";
@@ -11,18 +12,39 @@ import type { Player } from "../player/player.ts";
 import type { BuildModel } from "./build-model.ts";
 import { Ghost } from "./ghost.ts";
 import { resolveTarget, type Target } from "./targeting.ts";
-import { pieceType, type PieceType, type Rotation } from "./piece.ts";
+import { pieceType, MATERIALS, type Material, type PieceType, type Rotation } from "./piece.ts";
+import { slotKey } from "./slots.ts";
+import { DEFAULT_GAMEPLAY, type GameplaySettings } from "../settings/gameplay.ts";
+
+export type BuildMode = "movement" | "build" | "mattock";
+
+/** Turbo build retry cadence (Fortnite-like ~100 ms between placements). */
+export const TURBO_INTERVAL = 0.1;
+
+// The piece-select action -> piece type mapping.
+const PIECE_BINDS: ReadonlyArray<[Parameters<InputSystem["justPressed"]>[0], PieceType]> = [
+  ["buildWall", "wall"],
+  ["buildFloor", "floor"],
+  ["buildStairs", "stairs"],
+  ["buildRoof", "roof"],
+];
 
 export class BuildController implements System {
   readonly name = "build-controller";
 
   private ghost!: Ghost;
-  private active = false;
+  private mode: BuildMode = "movement";
   private pieceType: PieceType = "wall";
   private rotationOffset: Rotation = 0;
+  private material: Material = "wood";
 
   private target: Target | null = null;
   private valid = false;
+
+  private turboTimer = 0;
+  private lastPlacedKey: string | null = null;
+
+  gameplay: GameplaySettings = { ...DEFAULT_GAMEPLAY };
 
   private readonly ray = new THREE.Ray();
 
@@ -37,23 +59,37 @@ export class BuildController implements System {
     this.ghost = new Ghost(game.scene);
   }
 
-  /** Enter or leave build mode. Build mode swaps look sensitivity to "build". */
-  setActive(active: boolean): void {
-    this.active = active;
-    this.camera.lookContext = active ? "build" : "look";
-    if (!active) {
+  // --- Mode ---
+
+  setMode(mode: BuildMode): void {
+    if (mode === this.mode) return;
+    this.mode = mode;
+    this.camera.lookContext = mode === "build" ? "build" : "look";
+    // Building and harvesting face the camera aim (Fortnite build-mode facing).
+    this.player.aimMode = mode !== "movement";
+    if (mode !== "build") {
       this.ghost.hide();
       this.target = null;
     }
+    this.lastPlacedKey = null;
+    this.turboTimer = 0;
+  }
+
+  getMode(): BuildMode {
+    return this.mode;
+  }
+
+  /** Back-compat helper used by targeting tests: build mode on/off. */
+  setActive(active: boolean): void {
+    this.setMode(active ? "build" : "movement");
   }
 
   isActive(): boolean {
-    return this.active;
+    return this.mode === "build";
   }
 
   setPieceType(type: PieceType): void {
     this.pieceType = type;
-    // A fresh piece type re-derives its default facing.
     this.rotationOffset = 0;
   }
 
@@ -63,6 +99,15 @@ export class BuildController implements System {
 
   cycleRotation(): void {
     this.rotationOffset = ((this.rotationOffset + 1) % 4) as Rotation;
+  }
+
+  getMaterial(): Material {
+    return this.material;
+  }
+
+  cycleMaterial(): void {
+    const i = MATERIALS.indexOf(this.material);
+    this.material = MATERIALS[(i + 1) % MATERIALS.length]!;
   }
 
   getTarget(): Target | null {
@@ -78,11 +123,57 @@ export class BuildController implements System {
     return this.ghost.colorState;
   }
 
-  update(): void {
-    if (!this.active) return;
+  // --- Frame ---
 
+  update(dt: number): void {
+    this.handleModeBinds();
+    if (this.mode === "build") {
+      this.updateBuild(dt);
+    } else {
+      this.ghost.hide();
+    }
+  }
+
+  private handleModeBinds(): void {
+    // Piece-select binds enter build mode and switch the active piece.
+    for (const [action, type] of PIECE_BINDS) {
+      if (this.input.justPressed(action)) {
+        this.setPieceType(type);
+        this.setMode("build");
+      }
+    }
+    // Build/combat toggle swaps between building and the Mattock carry.
+    if (this.input.justPressed("buildCombatToggle")) {
+      this.setMode(this.mode === "mattock" ? "build" : "mattock");
+    }
+    // Material cycle applies in build mode (and is harmless elsewhere).
+    if (this.input.justPressed("materialCycle")) this.cycleMaterial();
+  }
+
+  private updateBuild(dt: number): void {
     if (this.input.justPressed("rotate")) this.cycleRotation();
 
+    this.resolveAndPreview();
+
+    const firePressed = this.input.justPressed("primaryFire");
+    const fireHeld = this.input.isDown("primaryFire");
+
+    if (firePressed && this.valid) {
+      this.placeTarget();
+      this.turboTimer = 0;
+    } else if (this.gameplay.turboBuild && fireHeld) {
+      this.turboTimer += dt;
+      if (this.turboTimer >= TURBO_INTERVAL) {
+        this.turboTimer = 0;
+        const key = this.target ? slotKey(this.target.slot) : null;
+        // Only place into a fresh valid slot (never twice into the same one).
+        if (this.valid && key !== null && key !== this.lastPlacedKey) this.placeTarget();
+      }
+    }
+    if (!fireHeld) this.lastPlacedKey = null;
+  }
+
+  private resolveAndPreview(): void {
     this.camera.getAimRay(this.ray);
     const s = this.player.state;
     this.target = resolveTarget({
@@ -94,13 +185,28 @@ export class BuildController implements System {
       type: this.pieceType,
       rotationOffset: this.rotationOffset,
     });
-
     const res = this.model.canPlace(this.target.slot, {
       rotation: this.target.rotation,
       playerBox: this.player.getCollisionBox(),
     });
     this.valid = res.ok;
     this.ghost.show(pieceType(this.target.slot), this.target.slot, this.target.rotation, this.valid);
+  }
+
+  /** Place the currently targeted piece with the active material. */
+  private placeTarget(): boolean {
+    const t = this.target;
+    if (!t) return false;
+    const ok = this.model.place(t.slot, {
+      material: this.material,
+      rotation: t.rotation,
+      playerBox: this.player.getCollisionBox(),
+    });
+    if (ok) {
+      this.lastPlacedKey = slotKey(t.slot);
+      this.player.triggerBuildSwing();
+    }
+    return ok;
   }
 
   dispose(): void {
