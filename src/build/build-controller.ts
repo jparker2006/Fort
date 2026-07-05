@@ -138,6 +138,11 @@ export class BuildController implements System {
     return this.ghost.colorState;
   }
 
+  /** Hex of the ghost's currently applied colour (blue valid / red invalid). */
+  ghostColorHex(): number {
+    return this.ghost.colorHex;
+  }
+
   // --- Frame ---
 
   update(dt: number): void {

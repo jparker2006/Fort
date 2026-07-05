@@ -74,6 +74,11 @@ export class Ghost {
     return this.mesh.material === this.validMat ? "valid" : "invalid";
   }
 
+  /** Hex of the colour currently applied to the ghost material; test helper. */
+  get colorHex(): number {
+    return (this.mesh.material as THREE.MeshBasicMaterial).color.getHex();
+  }
+
   dispose(): void {
     this.scene.remove(this.mesh);
     for (const g of this.geoms.values()) g.dispose();

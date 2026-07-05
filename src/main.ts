@@ -336,6 +336,9 @@ const debug = {
         ghost: buildController.ghostColorState(),
       };
     },
+    ghostColorHex(): number {
+      return buildController.ghostColorHex();
+    },
   },
   // Edit mode (T13).
   edit: {

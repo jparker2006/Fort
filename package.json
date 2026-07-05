@@ -14,6 +14,7 @@
     "check": "npm run typecheck && npm run lint && npm run check:no-emdash",
     "test:unit": "vitest run",
     "test": "playwright test",
+    "test:verify": "playwright test tests/verify.spec.ts",
     "verify": "npm run check && npm run test:unit && npm run test"
   },
   "dependencies": {

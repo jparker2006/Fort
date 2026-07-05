@@ -18,6 +18,12 @@ const executablePath = resolveChromium();
 
 export default defineConfig({
   testDir: "./tests",
+  // Serial by design: the reference environment renders through swiftshader
+  // (software WebGL), which is CPU bound, so extra browser workers thrash the
+  // cores and slow the wall clock rather than shortening it. The consolidated
+  // verification suite (npm run test:verify -> tests/verify.spec.ts) is the
+  // sub-5-minute canonical run; the full per-ticket regression is exhaustive
+  // and runs longer here (see the T21 note).
   fullyParallel: false,
   workers: 1,
   retries: 0,
