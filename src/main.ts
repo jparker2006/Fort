@@ -7,6 +7,9 @@ import { DebugInputOverlay } from "./input/debug-input-overlay.ts";
 import { Player } from "./player/player.ts";
 import { CameraRig } from "./player/camera-rig.ts";
 import { makeBox } from "./player/collision.ts";
+import { BuildSystem } from "./build/build-system.ts";
+import { wallOnEdge, floorSlot, stairsSlot, roofSlot } from "./build/slots.ts";
+import type { Material, Rotation } from "./build/piece.ts";
 import { bootTurntable } from "./character/turntable.ts";
 
 // Island, input, player (original hero), and the third-person camera rig.
@@ -43,6 +46,13 @@ player.setYawSource(() => cameraRig.yaw);
 // The spring arm collides against the ground so the camera never dips below it.
 const ground = game.scene.getObjectByName("ground");
 if (ground) cameraRig.addCollider(ground);
+
+// Build system: pool meshes join the camera spring-arm colliders as they are
+// created so the camera never clips through placed pieces.
+const build = new BuildSystem(game.scene, player.collision, (pool) =>
+  cameraRig.addCollider(pool.mesh),
+);
+game.add(build);
 
 // Live action-state overlay (toggle with Backslash).
 const inputOverlay = new DebugInputOverlay(app, input);
@@ -118,7 +128,45 @@ const debug = {
     const b = player.getHero().bones.get(name);
     return b ? b.rotation.x : 0;
   },
+  // Build model helpers (T09): place pieces by cell address and inspect state.
+  build: {
+    wall(cx: number, cy: number, cz: number, dir: "N" | "S" | "E" | "W", opts: BuildDebugOpts = {}): boolean {
+      return build.place(wallOnEdge(cx, cy, cz, dir), opts);
+    },
+    floor(cx: number, cy: number, cz: number, opts: BuildDebugOpts = {}): boolean {
+      return build.place(floorSlot(cx, cy, cz), opts);
+    },
+    stairs(cx: number, cy: number, cz: number, opts: BuildDebugOpts = {}): boolean {
+      return build.place(stairsSlot(cx, cy, cz), opts);
+    },
+    roof(cx: number, cy: number, cz: number, opts: BuildDebugOpts = {}): boolean {
+      return build.place(roofSlot(cx, cy, cz), opts);
+    },
+    removeFloor(cx: number, cy: number, cz: number): boolean {
+      return build.remove(floorSlot(cx, cy, cz));
+    },
+    scatter(n: number): number {
+      return build.debugScatter(n);
+    },
+    count(): number {
+      return build.count;
+    },
+    drawCalls(): number {
+      return build.drawCalls;
+    },
+    colliderCount(): number {
+      return player.collision.count;
+    },
+    rendererDrawCalls(): number {
+      return game.renderer.info.render.calls;
+    },
+  },
 };
+
+interface BuildDebugOpts {
+  material?: Material;
+  rotation?: Rotation;
+}
 
 (
   window as unknown as {
