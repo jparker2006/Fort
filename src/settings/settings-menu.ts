@@ -18,8 +18,8 @@ export interface SettingsDeps {
   input: InputSystem;
   /** Shared gameplay settings object, also referenced by the controllers. */
   gameplay: GameplaySettings;
-  pause: () => void;
-  resume: () => void;
+  /** Resume the session (the session owns pause/input; the menu just requests it). */
+  onResume: () => void;
 }
 
 interface SliderDef {
@@ -71,34 +71,26 @@ export class SettingsMenu implements System {
     void _game;
   }
 
-  update(): void {
-    // Esc opens the menu while playing. (T18 will also route pointer-lock loss
-    // here.) Closing is handled by the menu's own Escape listener below.
-    if (!this.open && this.deps.input.justPressed("settingsMenu")) this.openMenu();
-  }
-
   isOpen(): boolean {
     return this.open;
   }
 
+  /** Show the menu (the session pauses and freezes input around this). */
   openMenu(): void {
     if (this.open) return;
     this.open = true;
     this.root.hidden = false;
-    this.deps.input.setEnabled(false); // freeze gameplay input, release held keys
-    this.deps.pause();
     this.syncControls();
     document.addEventListener("keydown", this.onMenuKey, true);
   }
 
+  /** Hide the menu (called by the session on resume). */
   closeMenu(): void {
     if (!this.open) return;
     this.cancelArming();
     this.open = false;
     this.root.hidden = true;
     document.removeEventListener("keydown", this.onMenuKey, true);
-    this.deps.input.setEnabled(true);
-    this.deps.resume();
   }
 
   // --- Rebinding capture ---
@@ -175,7 +167,7 @@ export class SettingsMenu implements System {
     if (e.code !== "Escape") return;
     if (this.arming) return; // capture handler deals with it
     e.preventDefault();
-    this.closeMenu();
+    this.deps.onResume();
   };
 
   // --- Conflict prompt ---
@@ -215,7 +207,7 @@ export class SettingsMenu implements System {
       this.deps.input.resetAllBindings();
       this.refreshBindLabels();
     });
-    this.q("#settings-close").addEventListener("click", () => this.closeMenu());
+    this.q("#settings-close").addEventListener("click", () => this.deps.onResume());
     this.q("#conflict-swap").addEventListener("click", () => {
       if (this.arming && this.pendingCode) this.deps.input.rebind(this.arming, this.pendingCode, "swap");
       this.finishArming();

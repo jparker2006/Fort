@@ -96,6 +96,13 @@ export class BuildController implements System {
     this.suppressed = fn;
   }
 
+  /** Clear transient placement state (turbo run, ghost) safely, e.g. on pause. */
+  cancelTransient(): void {
+    this.turboTimer = 0;
+    this.lastPlacedKey = null;
+    this.ghost?.hide();
+  }
+
   setPieceType(type: PieceType): void {
     this.pieceType = type;
     this.rotationOffset = 0;

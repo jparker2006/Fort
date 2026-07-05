@@ -39,6 +39,7 @@ test("keyboard drives action state live through the action map", async ({ page }
 test("debug input overlay lists actions and reflects live state", async ({ page }) => {
   await page.goto("/");
   await page.waitForFunction(() => (window as unknown as FortWin).__fortReady);
+  await page.mouse.click(400, 300); // start the session so input is live
 
   const overlay = page.locator("#debug-input-overlay");
   await page.keyboard.press("Backslash");

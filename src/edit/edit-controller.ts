@@ -62,6 +62,11 @@ export class EditController implements System {
     return this.editing;
   }
 
+  /** Cancel an in-progress edit without applying (used on pause). */
+  cancel(): void {
+    if (this.editing) this.exit(false);
+  }
+
   update(): void {
     // Enter / confirm / reset gestures.
     if (!this.editing) {

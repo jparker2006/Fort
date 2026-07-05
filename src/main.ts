@@ -16,10 +16,12 @@ import { makeBuildMaterial } from "./build/materials.ts";
 import { Hud } from "./hud/hud.ts";
 import { Minimap } from "./hud/minimap.ts";
 import { SettingsMenu } from "./settings/settings-menu.ts";
+import { SessionController } from "./pwa/session.ts";
 import { loadInput } from "./input/persistence.ts";
 import { formatBindLabel } from "./input/bindings.ts";
 import { wallOnEdge, floorSlot, stairsSlot, roofSlot, slotKey, decodeSlotKey } from "./build/slots.ts";
 import type { Material, Rotation, PieceType } from "./build/piece.ts";
+import { registerServiceWorker } from "./pwa/register-sw.ts";
 import { bootTurntable } from "./character/turntable.ts";
 
 // Island, input, player (original hero), and the third-person camera rig.
@@ -36,11 +38,16 @@ if (new URLSearchParams(location.search).has("turntable")) {
   bootGame(app);
 }
 
+// Register the PWA service worker (production builds only; the plugin emits
+// sw.js at build time). Harmless no-op in dev and unit runs.
+if (import.meta.env.PROD) registerServiceWorker();
+
 function bootGame(app: HTMLElement): void {
 const game = new Game({ parent: app });
 
 const input = new InputSystem();
-input.setEnabled(true); // T18 gates this behind pointer lock; on for early review
+// Input stays disabled until the session enters the playing state (T18 gates it
+// behind the title screen's Play click and pointer lock).
 game.add(input);
 game.add(new World());
 
@@ -116,15 +123,26 @@ const minimap = new Minimap(app, {
 });
 game.add(minimap);
 
-// Settings menu (Esc): rebinding, sensitivity, and gameplay toggles. Opening it
-// pauses the sim and freezes gameplay input.
+// Settings menu (also the pause overlay): rebinding, sensitivity, and gameplay
+// toggles. The session owns pause/input; the menu just requests resume.
 const settings = new SettingsMenu(app, {
   input,
   gameplay,
-  pause: () => game.pause("settings"),
-  resume: () => game.resume("settings"),
+  onResume: () => session.resume(),
 });
 game.add(settings);
+
+// Session lifecycle: title -> playing -> paused, with fullscreen + pointer lock.
+const session = new SessionController({
+  app,
+  input,
+  settings,
+  onPause: () => {
+    editController.cancel();
+    buildController.cancelTransient();
+  },
+});
+game.add(session);
 
 // Live action-state overlay (toggle with Backslash).
 const inputOverlay = new DebugInputOverlay(app, input);
@@ -314,13 +332,31 @@ const debug = {
       return (document.querySelector("#hud-material") as HTMLElement | null)?.dataset.material ?? "";
     },
   },
-  // Settings menu (T17).
+  // Session lifecycle (T18).
+  session: {
+    play(): void {
+      session.play();
+    },
+    pause(): void {
+      session.pause("debug");
+    },
+    resume(): void {
+      session.resume();
+    },
+    state(): string {
+      return session.getState();
+    },
+    inputEnabled(): boolean {
+      return input.isEnabled;
+    },
+  },
+  // Settings menu (T17). Opening it goes through the session pause.
   settings: {
     open(): void {
-      settings.openMenu();
+      session.pause("debug");
     },
     close(): void {
-      settings.closeMenu();
+      session.resume();
     },
     isOpen(): boolean {
       return settings.isOpen();

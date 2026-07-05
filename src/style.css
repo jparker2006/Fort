@@ -187,6 +187,79 @@ canvas.fort-canvas {
   color: var(--hud-fg);
 }
 
+/* --- Title / app shell (T18) --- */
+#title {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 35%, #163a45 0%, #081217 70%);
+  pointer-events: auto;
+  cursor: pointer;
+}
+#title[hidden] {
+  display: none;
+}
+.title-card {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.title-name {
+  font-size: clamp(48px, 11vmin, 160px);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--hud-fg);
+  text-shadow: 0 3px 18px rgba(51, 196, 196, 0.4);
+}
+.title-tag {
+  font-size: clamp(13px, 1.8vmin, 26px);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--hud-accent);
+  opacity: 0.85;
+}
+#title-play {
+  margin-top: 18px;
+  padding: 0.6em 2.4em;
+  font: inherit;
+  font-size: clamp(16px, 2.2vmin, 30px);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #08181d;
+  background: var(--hud-accent);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(51, 196, 196, 0.35);
+}
+#title-play:hover {
+  filter: brightness(1.08);
+}
+.title-hint {
+  margin-top: 8px;
+  font-size: clamp(11px, 1.3vmin, 20px);
+  color: var(--hud-fg);
+  opacity: 0.6;
+}
+#title-install {
+  margin-top: 6px;
+  padding: 0.4em 1.4em;
+  font: inherit;
+  color: var(--hud-fg);
+  background: transparent;
+  border: 1px solid rgba(232, 244, 244, 0.3);
+  border-radius: 8px;
+  cursor: pointer;
+}
+#title-install[hidden] {
+  display: none;
+}
+
 /* --- Settings menu (T17) --- */
 #settings {
   position: fixed;

@@ -11,7 +11,9 @@ test.beforeAll(() => mkdirSync(EVIDENCE_DIR, { recursive: true }));
 async function ready(page: import("@playwright/test").Page) {
   await page.goto("/");
   await page.waitForFunction(() => (window as unknown as FortWin).__fortReady);
-  // Pump a few deterministic frames so the rig has run.
+  // Click the title to start the session (enables input, unfreezes the sim),
+  // then pump a few deterministic frames so the rig has run.
+  await page.mouse.click(400, 300);
   await page.evaluate(() => (window as unknown as FortWin).__fort.debug.pump(5));
 }
 

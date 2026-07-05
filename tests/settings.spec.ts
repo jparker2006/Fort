@@ -8,6 +8,10 @@ type FortWin = { __fort?: any; __fortReady?: boolean };
 
 test.beforeAll(() => mkdirSync(EVIDENCE_DIR, { recursive: true }));
 
+// A 1080p viewport so the full rebind list fits without the settings body
+// scrolling (which can transiently intercept a bind-button click under load).
+test.use({ viewport: { width: 1920, height: 1080 } });
+
 async function ready(page: import("@playwright/test").Page) {
   await page.goto("/");
   await page.waitForFunction(() => (window as unknown as FortWin).__fortReady);
