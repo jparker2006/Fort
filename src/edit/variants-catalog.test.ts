@@ -5,6 +5,7 @@ import { PoolRegistry, BuildModel, fullVariant } from "../build/build-model.ts";
 import { baseGeometry } from "../build/variants.ts";
 import { PIECE_TYPES, type Slot } from "../build/piece.ts";
 import { wallOnEdge, floorSlot, stairsSlot } from "../build/slots.ts";
+import { CELL_HEIGHT } from "../world/grid.ts";
 import {
   selectionToVariant,
   variantToSelection,
@@ -89,7 +90,7 @@ describe("variant geometry and colliders agree", () => {
   it("a low wall's colliders only reach one third of the height", () => {
     const boxes = variantColliders(wallOnEdge(0, 0, 0, "S"), 0, "wall#7");
     const maxY = Math.max(...boxes.map((b) => b.maxY));
-    expect(maxY).toBeCloseTo(1, 5); // H/3 = 1
+    expect(maxY).toBeCloseTo(CELL_HEIGHT / 3, 5); // low wall reaches H/3
   });
 
   it("a door leaves the center column open (no collider there)", () => {

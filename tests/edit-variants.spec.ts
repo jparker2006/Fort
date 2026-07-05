@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { CELL_SIZE, CELL_HEIGHT } from "../src/world/grid.ts";
 
 const EVIDENCE_DIR = "test-results/evidence";
 
@@ -60,16 +61,18 @@ test("collision matches a floor hole: the player over it falls", async ({ page }
 
 test("collision matches a low wall edit: its top sits one third up", async ({ page }) => {
   await ready(page);
-  await page.evaluate((v) => {
+  await page.evaluate((a) => {
     const f = (window as unknown as FortWin).__fort;
     f.debug.build.wall(0, 0, 2, "S");
-    f.debug.build.applyEdit("wz:2:0:0", v);
-    f.debug.teleport(2, 1.4, 8); // drop onto the low wall top
-  }, LOW_WALL);
+    f.debug.build.applyEdit("wz:2:0:0", a.v);
+    // Drop onto the low wall top: over the cell mid-X, at the wall's south edge
+    // (cell 2 boundary), from just above the H/3 low-wall top.
+    f.debug.teleport(a.cell / 2, a.h / 3 + 0.5, 2 * a.cell);
+  }, { v: LOW_WALL, cell: CELL_SIZE, h: CELL_HEIGHT });
   await pump(page, 25);
   const y = await posY(page);
-  expect(y).toBeGreaterThan(0.9);
-  expect(y).toBeLessThan(1.2); // landed at ~1 (H/3), not at the full height 3
+  expect(y).toBeGreaterThan(CELL_HEIGHT / 3 - 0.1);
+  expect(y).toBeLessThan(CELL_HEIGHT / 3 + 0.15); // landed at H/3, not the full height
 });
 
 test("stairs re-face: the ramp becomes walkable from its new low edge", async ({ page }) => {

@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { CELL_SIZE, CELL_HEIGHT } from "../src/world/grid.ts";
+import { MOVE } from "../src/player/movement-tuning.ts";
 
 const EVIDENCE_DIR = "test-results/evidence";
 
@@ -106,6 +108,28 @@ test("ascends a staircase of steps smoothly at sprint speed", async ({ page }) =
   expect(r.maxY).toBeGreaterThan(1.2);
   expect(r.maxStep).toBeLessThanOrEqual(0.6 + 0.01);
   await page.screenshot({ path: `${EVIDENCE_DIR}/t06-stairs.png` });
+});
+
+test("walks a real stair ramp up a full storey after the T23 rescale", async ({ page }) => {
+  await ready(page);
+  await page.evaluate((v) => {
+    const f = (window as unknown as FortWin).__fort;
+    f.debug.setYaw(Math.PI); // face +Z, the ramp's ascending direction
+    // Start just south of the ramp's low edge (cell 0 spans z 0..CELL_SIZE), on
+    // the cell's mid-X, then build one real stairs piece ascending +Z.
+    f.debug.teleport(0.5 * v.cell, 0, -1.5);
+    f.debug.build.stairs(0, 0, 0, { rotation: 0 });
+    f.debug.pump(2);
+  }, { cell: CELL_SIZE });
+
+  await page.keyboard.down("KeyW");
+  const r = await run(page, 220);
+  await page.keyboard.up("KeyW");
+
+  // Climbed a full storey (~CELL_HEIGHT = 3.6) and never popped by more than one
+  // tread: proof that STAIR_STEPS 7 keeps the taller cell's ramp walkable.
+  expect(r.maxY).toBeGreaterThan(CELL_HEIGHT - 0.4);
+  expect(r.maxStep).toBeLessThanOrEqual(MOVE.stepHeight + 0.01);
 });
 
 test("running into a wall does not explode or produce NaN", async ({ page }) => {

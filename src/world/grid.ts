@@ -4,15 +4,18 @@
 // build model, targeting, and editing in later tickets) imports these
 // constants and helpers. Nothing may hardcode 4 or 3 for cell dimensions.
 //
-// Scale rationale: Fortnite build pieces are roughly 512 x 512 x 384 in Unreal
-// units, a 4:4:3 footprint-to-height ratio. Fort uses metric-ish units where
-// one cell is 4 x 4 wide and 3 tall, matching that ratio with ~1 unit per meter.
+// Scale rationale: Fortnite build pieces are 512 x 512 x 384 in Unreal units
+// (1 uu = 1 cm), a 4:4:3 footprint-to-height ratio. Fort keeps that ratio with a
+// cell 4.8 x 4.8 wide and 3.6 tall so that, against the 1.8 m player, a wall
+// reads exactly half the player's height (3.6 / 1.8 = 2.00) and one cell is 2.67
+// players wide (4.8 / 1.8), matching Fortnite's proportions at 93.75 percent
+// absolute scale (T23). The 4:3 footprint-to-height ratio is preserved.
 
 /** Horizontal footprint of one cell, in world units (X and Z). */
-export const CELL_SIZE = 4;
+export const CELL_SIZE = 4.8;
 
 /** Vertical height of one cell (one wall/floor storey), in world units. */
-export const CELL_HEIGHT = 3;
+export const CELL_HEIGHT = 3.6;
 
 /** Island span in cells per side. */
 export const ISLAND_CELLS = 40;

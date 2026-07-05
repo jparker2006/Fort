@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { CELL_SIZE } from "../src/world/grid.ts";
 
 const EVIDENCE_DIR = "test-results/evidence";
 
@@ -103,14 +104,15 @@ test("turbo build fills fresh slots while held, and stops when toggled off", asy
     t.setPiece("wall");
     t.setTurbo(true);
   });
-  await standAt(page, -8);
+  await standAt(page, -2 * CELL_SIZE);
   await pump(page, 2);
   const before = await count(page);
 
-  // Move across cells while holding fire: each fresh slot fills once.
+  // Move one full cell per step while holding fire, so each stand targets a
+  // fresh slot exactly once (stride tracks CELL_SIZE, not a fixed literal).
   await page.mouse.down();
   for (let i = 0; i < 6; i++) {
-    await standAt(page, -8 + i * 4);
+    await standAt(page, (-2 + i) * CELL_SIZE);
     await pump(page, 8); // > TURBO_INTERVAL (0.1s ~ 6 frames)
   }
   await page.mouse.up();
@@ -123,7 +125,7 @@ test("turbo build fills fresh slots while held, and stops when toggled off", asy
   const held = afterTurbo;
   await page.mouse.down();
   for (let i = 0; i < 4; i++) {
-    await standAt(page, 12 + i * 4);
+    await standAt(page, (3 + i) * CELL_SIZE);
     await pump(page, 8);
   }
   await page.mouse.up();

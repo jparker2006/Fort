@@ -7,6 +7,7 @@
 
 import { test, expect } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { CELL_SIZE } from "../src/world/grid.ts";
 
 const EVIDENCE_DIR = "test-results/evidence";
 
@@ -53,12 +54,16 @@ test("full gameplay flow: place a wall, edit a window into it, destroy it", asyn
 
   // Aim at open ground just ahead (steep enough that the wall lands one cell
   // away, well inside edit and Mattock reach) and enter build mode via the key.
-  await page.evaluate(() => {
+  await page.evaluate((cell) => {
     const f = (window as unknown as FortWin).__fort;
-    f.debug.teleport(2, 0, 10);
+    // The wall snaps to the south edge of cell 2 (z = 2 * CELL_SIZE); stand a
+    // fixed 2.0 units north of it. Eye height, pitch, and reach are absolute
+    // (they do not scale with the grid), so keeping the player-to-wall distance
+    // fixed keeps the place -> edit -> destroy aim identical at any cell size.
+    f.debug.teleport(0.5 * cell, 0, 2 * cell + 2.0);
     f.debug.setYaw(0);
     f.debug.setPitch(-0.7);
-  });
+  }, CELL_SIZE);
   await page.keyboard.press("KeyZ"); // buildWall bind -> build mode + wall selected
   await pump(page, 3);
   expect(await mode(page)).toBe("build");

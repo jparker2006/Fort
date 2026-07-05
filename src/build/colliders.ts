@@ -12,9 +12,10 @@ export const WALL_THICK = 0.3;
 export const FLOOR_THICK = 0.3;
 
 // Steps a full ramp is discretized into for collision (and its stepped mesh).
-// Six steps over the 3-unit cell height gives 0.5 per tread, within the player
-// step-up height (0.6) so ramps are smoothly walkable.
-export const STAIR_STEPS = 6;
+// Seven steps over the 3.6-unit cell height give ~0.514 per tread, keeping a
+// margin under the player step-up height (0.6) so ramps are smoothly walkable.
+// (At six steps the tread would be 0.6, sitting exactly on the boundary.)
+export const STAIR_STEPS = 7;
 /** Stacked boxes approximating a roof/cone so it is walkable (refined in T14). */
 const ROOF_LAYERS = 3;
 

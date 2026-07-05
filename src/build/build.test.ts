@@ -12,6 +12,8 @@ import {
 } from "./slots.ts";
 import { pieceColliders, STAIR_STEPS } from "./colliders.ts";
 import { checkPlacement, BUILD_MAX_LEVEL } from "./rules.ts";
+import { CELL_SIZE, CELL_HEIGHT } from "../world/grid.ts";
+import { MOVE } from "../player/movement-tuning.ts";
 import { PoolRegistry, BuildModel, fullVariant } from "./build-model.ts";
 import { baseGeometry } from "./variants.ts";
 import { PIECE_TYPES, type Slot, type Rotation } from "./piece.ts";
@@ -75,7 +77,20 @@ describe("collider derivation", () => {
     const tallestX = east.reduce((a, b) => (b.maxY > a.maxY ? b : a));
     expect(tallestZ.maxZ).toBeGreaterThan(tallestZ.minZ);
     expect(tallestX.maxX).toBeGreaterThan(tallestX.minX);
-    expect(tallestX.maxX).toBeCloseTo(4, 5); // reaches the far X edge of the cell
+    expect(tallestX.maxX).toBeCloseTo(CELL_SIZE, 5); // reaches the far X edge of the cell
+  });
+
+  it("stair treads stay a margin under the player step-up height", () => {
+    // With the T23 rescale the cell is 3.6 tall; STAIR_STEPS (7) keeps each tread
+    // rise = CELL_HEIGHT / STAIR_STEPS = 0.514, safely under MOVE.stepHeight (0.6)
+    // with the required 0.05 margin. At six steps the tread would be 0.6, exactly
+    // on the boundary, so the player could snag climbing a ramp.
+    const boxes = pieceColliders(stairsSlot(0, 0, 0), 0);
+    const tops = boxes.map((b) => b.maxY).sort((a, b) => a - b);
+    let maxRise = tops[0]!; // ground (y=0) up to the first tread
+    for (let i = 1; i < tops.length; i++) maxRise = Math.max(maxRise, tops[i]! - tops[i - 1]!);
+    expect(maxRise).toBeCloseTo(CELL_HEIGHT / STAIR_STEPS, 5);
+    expect(maxRise).toBeLessThan(MOVE.stepHeight - 0.05);
   });
 });
 

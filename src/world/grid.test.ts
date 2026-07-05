@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   CELL_SIZE,
+  ISLAND_CELLS,
   ISLAND_SIZE,
   ISLAND_HALF,
   CELL_MIN,
@@ -14,8 +15,11 @@ import {
 
 describe("grid math", () => {
   it("island spans the expected world size centered on origin", () => {
-    expect(ISLAND_SIZE).toBe(160);
-    expect(ISLAND_HALF).toBe(80);
+    // Island span scales with CELL_SIZE (T23: 4.8 * 40 = 192, half 96); the cell
+    // index bounds are count-based and unchanged by the rescale.
+    expect(ISLAND_CELLS).toBe(40);
+    expect(ISLAND_SIZE).toBeCloseTo(192, 6);
+    expect(ISLAND_HALF).toBeCloseTo(96, 6);
     expect(CELL_MIN).toBe(-20);
     expect(CELL_MAX).toBe(19);
   });
@@ -23,7 +27,9 @@ describe("grid math", () => {
   it("cell origin and center are consistent with cell size", () => {
     expect(cellOrigin(0, 0)).toEqual({ x: 0, z: 0 });
     expect(cellCenter(0, 0)).toEqual({ x: CELL_SIZE / 2, z: CELL_SIZE / 2 });
-    expect(cellOrigin(3, -2)).toEqual({ x: 12, z: -8 });
+    // Expressed via CELL_SIZE so it stays float-exact against cellOrigin's own
+    // cx * CELL_SIZE and rescales automatically.
+    expect(cellOrigin(3, -2)).toEqual({ x: 3 * CELL_SIZE, z: -2 * CELL_SIZE });
   });
 
   it("worldToCell is the inverse of cellOrigin (floor semantics)", () => {

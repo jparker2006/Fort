@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { CELL_SIZE } from "../src/world/grid.ts";
 
 const EVIDENCE_DIR = "test-results/evidence";
 
@@ -114,23 +115,25 @@ test("edit works on every piece type with the right tile counts", async ({ page 
   // Each piece gets its own cell so the raycast never hits an earlier one.
   // Floors are thin, so aim steeply down from on top; stairs/roofs rise to the
   // cell height, so aim at them like a wall from the front.
+  // Player standoff is given in cell units (multiples of CELL_SIZE) so the aim
+  // geometry stays proportional to the piece under any grid scale.
   const cases: Array<[string, number, number, number, number]> = [
-    // kind, tiles, cz, playerZ, pitch
-    ["floor", 4, 2, 10, -1.25],
-    ["stairs", 4, 5, 26, -0.35],
-    ["roof", 4, 8, 38, -0.35],
+    // kind, tiles, cz, playerZcells, pitch
+    ["floor", 4, 2, 2.5, -1.25],
+    ["stairs", 4, 5, 6.5, -0.35],
+    ["roof", 4, 8, 9.5, -0.35],
   ];
-  for (const [kind, tiles, cz, z, pitch] of cases) {
+  for (const [kind, tiles, cz, zCells, pitch] of cases) {
     await page.evaluate(
       (a) => {
         const f = (window as unknown as FortWin).__fort;
-        f.debug.teleport(2, 0, a.z);
+        f.debug.teleport(0.5 * a.cell, 0, a.zCells * a.cell);
         f.debug.setYaw(0);
         f.debug.setPitch(a.pitch);
         f.debug.build[a.kind](0, 0, a.cz);
         f.debug.pump(2);
       },
-      { kind, cz, z, pitch },
+      { kind, cz, zCells, pitch, cell: CELL_SIZE },
     );
     await page.keyboard.press("KeyG");
     await pump(page, 2);

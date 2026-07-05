@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { CELL_SIZE } from "../src/world/grid.ts";
 
 const EVIDENCE_DIR = "test-results/evidence";
 
@@ -31,8 +32,8 @@ test("grid overlay aligns to the shared cell constant", async ({ page }) => {
   await page.goto("/");
   await page.waitForFunction(() => (window as unknown as { __fortReady?: boolean }).__fortReady);
 
-  // Every grid vertex X and Z must be an exact multiple of CELL_SIZE (4).
-  const aligned = await page.evaluate(() => {
+  // Every grid vertex X and Z must be an exact multiple of CELL_SIZE.
+  const aligned = await page.evaluate((cell) => {
     const g = (window as unknown as {
       __fort?: { game: { scene: { getObjectByName: (n: string) => { geometry: { getAttribute: (a: string) => { array: ArrayLike<number>; count: number } } } | undefined } } };
     }).__fort!;
@@ -40,15 +41,15 @@ test("grid overlay aligns to the shared cell constant", async ({ page }) => {
     if (!grid) return false;
     const pos = grid.geometry.getAttribute("position");
     const arr = pos.array;
+    // A grid line endpoint sits on a cell boundary in one axis; the other axis
+    // runs to the island edge (also a multiple of CELL_SIZE). Check divisibility
+    // via the quotient (float-safe: (x % cell) drifts to ~cell near multiples).
+    const onGrid = (v: number) => Math.abs(v / cell - Math.round(v / cell)) < 1e-6;
     for (let i = 0; i < pos.count; i++) {
-      const x = arr[i * 3];
-      const z = arr[i * 3 + 2];
-      // A grid line endpoint sits on a cell boundary in one axis; the other
-      // axis runs to the island edge (also a multiple of 4).
-      if (Math.abs((x as number) % 4) > 1e-6) return false;
-      if (Math.abs((z as number) % 4) > 1e-6) return false;
+      if (!onGrid(arr[i * 3] as number)) return false;
+      if (!onGrid(arr[i * 3 + 2] as number)) return false;
     }
     return true;
-  });
+  }, CELL_SIZE);
   expect(aligned).toBe(true);
 });
