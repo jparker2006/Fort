@@ -1,45 +1,54 @@
 import "./style.css";
 import * as THREE from "three";
+import { Game, type System } from "./core/game.ts";
 
-// T01 bootstrap: prove a WebGL2 canvas renders with no console errors.
-// T02 replaces this body with the real engine loop and Game object.
+// T02 bootstrap: engine loop, resize, visibility pause, FPS overlay, proven
+// with a spinning debug cube. T03 replaces the debug system with the world.
 
 const app = document.getElementById("app");
 if (!app) {
   throw new Error("Missing #app root element");
 }
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.domElement.classList.add("fort-canvas");
-app.appendChild(renderer.domElement);
+const game = new Game({ parent: app });
+game.scene.background = new THREE.Color(0x12313a);
+game.scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 1.4));
+game.camera.position.set(0, 0, 4);
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x12313a);
+// Debug spinning cube. Rotation advances in fixedUpdate so the spin rate is
+// identical at 60, 120, and 144 Hz displays; render() interpolates for smooth
+// motion between sim steps.
+class SpinningCube implements System {
+  readonly name = "debug-cube";
+  private readonly mesh: THREE.Mesh;
+  private angle = 0;
+  private prevAngle = 0;
+  private readonly speed = 1.2; // radians per second
 
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(0, 0, 4);
+  constructor() {
+    this.mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(1, 1, 1),
+      new THREE.MeshStandardMaterial({ color: 0x33c4c4, roughness: 0.5 }),
+    );
+  }
 
-const cube = new THREE.Mesh(
-  new THREE.BoxGeometry(1, 1, 1),
-  new THREE.MeshStandardMaterial({ color: 0x33c4c4 }),
-);
-scene.add(cube);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 1.2));
+  init(g: Game): void {
+    g.scene.add(this.mesh);
+  }
 
-function onResize(): void {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  fixedUpdate(dt: number): void {
+    this.prevAngle = this.angle;
+    this.angle += this.speed * dt;
+  }
+
+  render(alpha: number): void {
+    const a = this.prevAngle + (this.angle - this.prevAngle) * alpha;
+    this.mesh.rotation.set(a * 0.8, a, 0);
+  }
 }
-window.addEventListener("resize", onResize);
 
-renderer.setAnimationLoop(() => {
-  cube.rotation.x += 0.01;
-  cube.rotation.y += 0.013;
-  renderer.render(scene, camera);
-});
+game.add(new SpinningCube());
+game.start();
 
-// Expose a readiness flag for Playwright to await first paint.
+(window as unknown as { __fort?: { game: Game } }).__fort = { game };
 (window as unknown as { __fortReady?: boolean }).__fortReady = true;

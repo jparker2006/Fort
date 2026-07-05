@@ -90,7 +90,7 @@ Notes on batching:
 - Tabbing away and back does not produce a giant delta-time step.
 - FPS readout displays and toggles.
 
-**Verification note**: _to fill in when implemented_
+**Verification note**: Done. `src/core/` holds the engine: a typed `EventBus`, a `FixedStepper` (120 Hz sim, accumulator, clamp to 8 steps), a `Game` object owning renderer/scene/camera/systems, and a `DebugOverlay`. The loop runs fixedUpdate per sim step, then update(frameDelta), then render(alpha) with interpolation. Vitest `time.test.ts` (7 tests) proves the decoupling under artificial stalls: matched-cadence gives 1 step, a 60 Hz frame gives 2 steps at 120 Hz sim, sub-step frames carry into alpha, a 2 s stall clamps to 8 steps (no spiral of death), and alpha stays in [0,1) across a random delta walk. Playwright `engine.spec.ts` (3 tests): backquote toggles the overlay and it shows fps/frame/sim/draws (screenshot `t02-overlay.png` shows fps 45 with sim running 2 steps per frame, confirming sim rate is independent of the software-rendered frame rate); resize keeps camera aspect matched to the canvas within 0.01 across three viewport shapes (no distortion); render frame counter advances over time. Giant-delta protection on tab-away is covered two ways: `visibilitychange` pauses the sim clock, and the stepper clamp bounds catch-up regardless.
 
 ### T03: Creative island world
 
