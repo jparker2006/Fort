@@ -13,6 +13,15 @@ export interface InputSettings {
   buildSensitivityMultiplier: number;
   editSensitivityMultiplier: number;
   invertY: boolean;
+  /** Vertical field of view in degrees. Camera clamps to [FOV_MIN, FOV_MAX]. */
+  fov: number;
+}
+
+export const FOV_MIN = 60;
+export const FOV_MAX = 120;
+
+export function clampFov(fov: number): number {
+  return Math.max(FOV_MIN, Math.min(FOV_MAX, fov));
 }
 
 /** Yaw radians produced by one pixel of raw mouse motion at sensitivity 1.0. */

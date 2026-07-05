@@ -7,6 +7,7 @@ const base: InputSettings = {
   buildSensitivityMultiplier: 1.5,
   editSensitivityMultiplier: 0.3,
   invertY: false,
+  fov: 80,
 };
 
 describe("scalePointerDelta", () => {

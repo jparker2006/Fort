@@ -110,6 +110,15 @@ export class Game {
     return this.paused;
   }
 
+  /**
+   * Test hook: run exactly one frame with a controlled delta, independent of
+   * requestAnimationFrame (which headless browsers throttle). Production always
+   * drives the loop through setAnimationLoop; tests pump this for determinism.
+   */
+  stepForTest(deltaMs = 1000 / 60): void {
+    this.frame(this.lastTime + deltaMs);
+  }
+
   private readonly frame = (now: number): void => {
     const frameDeltaMs = now - this.lastTime;
     this.lastTime = now;

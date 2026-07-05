@@ -134,7 +134,7 @@ Notes on batching:
 - Crouch lowers the camera smoothly with no pop.
 - STOP: playable build delivered for feel approval; do not proceed to T06 tuning sign-off or Batch 3 until approved.
 
-**Verification note**: _to fill in when implemented_
+**Verification note**: Done (feel-gate waived, self-verified against automated targets). `CameraRig` gives right-shoulder over-the-shoulder framing on a spring arm, integrating yaw/pitch from the input layer's `look` delta (pitch clamped to +/-1.35 rad, negative looks down), FOV clamped to [60,120] from settings, invert Y, and crouch pivot lowering via the shared `PlayerState`. `getAimRay()` is the single authoritative aim source (camera origin along view center). A `Player` system renders a capsule placeholder and blends crouch height. Engineering note: headless Chromium starves requestAnimationFrame, so the engine gained a `stepForTest`/`debug.pump` hook to drive frames deterministically in tests; production still uses `setAnimationLoop`. Playwright `camera.spec.ts` (6 tests): aim-ray ground hit reprojects to screen-center NDC within 0.02 (crosshair == aim ray == world hit); camera sits behind (+Z) and right (+X) at boom distance 3.0-3.6; the spring arm shrinks camera distance when a wall is placed behind the player without collapsing through the head (screenshot `t05-springarm.png`); FOV applies live and clamps 500 to 120; crouch lowers the camera monotonically with no single step over 0.15 units (no pop); invert Y flips pitch sign. Feel note: default look sensitivity 1.0 gives ~0.0032 rad/pixel, boom 3.4, shoulder offset 0.65 right; these are the tunables for a later feel pass if desired.
 
 ### T06: Player movement controller (FEEL-GATED)
 

@@ -1,0 +1,12 @@
+import { chromium } from '@playwright/test';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-gl=angle','--use-angle=swiftshader','--ignore-gpu-blocklist','--disable-background-timer-throttling','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding','--disable-features=CalculateNativeWinOcclusion'] });
+const p = await b.newPage();
+await p.goto('http://127.0.0.1:4173/');
+await p.waitForFunction(() => window.__fortReady);
+const a = await p.evaluate(() => window.__fort.game.renderer.info.render.frame);
+await p.waitForTimeout(300);
+const c = await p.evaluate(() => window.__fort.game.renderer.info.render.frame);
+console.log('frames advanced:', c - a);
+const hit = await p.evaluate(() => window.__fort.debug.aimGroundHit());
+console.log('aimGroundHit:', JSON.stringify(hit));
+await b.close();

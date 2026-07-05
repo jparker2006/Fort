@@ -35,4 +35,5 @@ export const DEFAULT_INPUT_SETTINGS: InputSettings = {
   buildSensitivityMultiplier: 1.0,
   editSensitivityMultiplier: 1.0,
   invertY: false,
+  fov: 80,
 };

@@ -31,7 +31,17 @@ export default defineConfig({
     trace: "off",
     launchOptions: {
       ...(executablePath ? { executablePath } : {}),
-      args: ["--use-gl=angle", "--use-angle=swiftshader", "--ignore-gpu-blocklist"],
+      args: [
+        "--use-gl=angle",
+        "--use-angle=swiftshader",
+        "--ignore-gpu-blocklist",
+        // Keep requestAnimationFrame running at full rate in headless so the
+        // real engine loop drives the game during tests.
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+        "--disable-features=CalculateNativeWinOcclusion",
+      ],
     },
   },
   webServer: {
