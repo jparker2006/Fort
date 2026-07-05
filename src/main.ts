@@ -350,16 +350,25 @@ const debug = {
       return input.isEnabled;
     },
   },
-  // Settings menu (T17). Opening it goes through the session pause.
+  // Settings menu (T17). Drives the pause + menu directly (not through the
+  // pointer-lock state machine) so tests are deterministic in a headless
+  // browser where lock grant/loss can race the session state.
   settings: {
     open(): void {
-      session.pause("debug");
+      game.pause("debug");
+      input.setEnabled(false);
+      settings.openMenu();
     },
     close(): void {
-      session.resume();
+      settings.closeMenu();
+      input.setEnabled(true);
+      game.resume("debug");
     },
     isOpen(): boolean {
       return settings.isOpen();
+    },
+    arm(action: string): void {
+      settings.debugArm(action as Parameters<typeof settings.debugArm>[0]);
     },
     gameplay(): { turboBuild: boolean; confirmEditOnRelease: boolean; resetEditOnRelease: boolean } {
       return { ...gameplay };

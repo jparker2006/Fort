@@ -75,6 +75,12 @@ export class SettingsMenu implements System {
     return this.open;
   }
 
+  /** Test hook: arm a bind row directly (the real capture + rebind path then
+   * runs off a genuine keypress), avoiding flaky synthetic mouse hit-testing. */
+  debugArm(action: Action): void {
+    this.armRebind(action);
+  }
+
   /** Show the menu (the session pauses and freezes input around this). */
   openMenu(): void {
     if (this.open) return;
