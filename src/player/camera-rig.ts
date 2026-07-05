@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Game, System } from "../core/game.ts";
 import type { InputSystem } from "../input/input-system.ts";
-import { clampFov } from "../input/sensitivity.ts";
+import { clampFov, type SensitivityContext } from "../input/sensitivity.ts";
 import type { Player } from "./player.ts";
 
 // Third-person over-the-shoulder camera. Yaw and pitch come from the input
@@ -38,6 +38,10 @@ export class CameraRig implements System {
 
   yaw = 0;
   pitch = -0.1; // slight downward gaze at spawn (negative pitch looks down)
+
+  /** Sensitivity context for look input; build/edit modes swap this so their
+   * per-context multipliers (T04) apply to aiming. */
+  lookContext: SensitivityContext = "look";
 
   private game!: Game;
   private readonly colliders: THREE.Object3D[] = [];
@@ -77,7 +81,7 @@ export class CameraRig implements System {
   update(): void {
     // 1. Integrate look input (already scaled to radians by the input layer).
     // Negative pitch looks down, so subtract the downward-positive delta.
-    const look = this.input.consumePointerDelta("look");
+    const look = this.input.consumePointerDelta(this.lookContext);
     this.yaw -= look.yaw;
     this.pitch -= look.pitch;
     this.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.pitch));

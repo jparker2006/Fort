@@ -1,7 +1,7 @@
 import type { Game, System } from "../core/game.ts";
 import type { InputSystem } from "../input/input-system.ts";
 import { PlayerState, PLAYER } from "./player-state.ts";
-import { CollisionWorld } from "./collision.ts";
+import { CollisionWorld, type Box } from "./collision.ts";
 import { MovementController } from "./movement.ts";
 import { buildHero, type Hero } from "../character/hero.ts";
 import { AnimationController } from "../character/animation-controller.ts";
@@ -51,6 +51,21 @@ export class Player implements System {
 
   getHero(): Hero {
     return this.hero;
+  }
+
+  /** Current player capsule as an AABB (used by build placement to reject
+   * pieces that would intersect the player). */
+  getCollisionBox(): Box {
+    const s = this.state;
+    const r = PLAYER.radius;
+    return {
+      minX: s.position.x - r,
+      minY: s.position.y,
+      minZ: s.position.z - r,
+      maxX: s.position.x + r,
+      maxY: s.position.y + s.height,
+      maxZ: s.position.z + r,
+    };
   }
 
   triggerBuildSwing(): void {

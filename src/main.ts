@@ -8,8 +8,9 @@ import { Player } from "./player/player.ts";
 import { CameraRig } from "./player/camera-rig.ts";
 import { makeBox } from "./player/collision.ts";
 import { BuildSystem } from "./build/build-system.ts";
-import { wallOnEdge, floorSlot, stairsSlot, roofSlot } from "./build/slots.ts";
-import type { Material, Rotation } from "./build/piece.ts";
+import { BuildController } from "./build/build-controller.ts";
+import { wallOnEdge, floorSlot, stairsSlot, roofSlot, slotKey, decodeSlotKey } from "./build/slots.ts";
+import type { Material, Rotation, PieceType } from "./build/piece.ts";
 import { bootTurntable } from "./character/turntable.ts";
 
 // Island, input, player (original hero), and the third-person camera rig.
@@ -53,6 +54,11 @@ const build = new BuildSystem(game.scene, player.collision, (pool) =>
   cameraRig.addCollider(pool.mesh),
 );
 game.add(build);
+
+// Build-mode targeting and ghost preview. Added after the camera rig so its
+// per-frame update reads the freshly integrated aim ray.
+const buildController = new BuildController(input, cameraRig, player, build.model);
+game.add(buildController);
 
 // Live action-state overlay (toggle with Backslash).
 const inputOverlay = new DebugInputOverlay(app, input);
@@ -101,6 +107,9 @@ const debug = {
   setYaw(yaw: number): void {
     cameraRig.yaw = yaw;
   },
+  setPitch(pitch: number): void {
+    cameraRig.pitch = pitch;
+  },
   aimGroundHit(): { x: number; z: number } | null {
     const ray = cameraRig.getAimRay();
     if (Math.abs(ray.direction.y) < 1e-6) return null;
@@ -148,6 +157,9 @@ const debug = {
     scatter(n: number): number {
       return build.debugScatter(n);
     },
+    placeSlotKey(key: string, opts: BuildDebugOpts = {}): boolean {
+      return build.place(decodeSlotKey(key), opts);
+    },
     count(): number {
       return build.count;
     },
@@ -159,6 +171,27 @@ const debug = {
     },
     rendererDrawCalls(): number {
       return game.renderer.info.render.calls;
+    },
+  },
+  // Build-mode targeting/ghost (T10).
+  target: {
+    setActive(v: boolean): void {
+      buildController.setActive(v);
+    },
+    setPiece(type: PieceType): void {
+      buildController.setPieceType(type);
+    },
+    cycleRotation(): void {
+      buildController.cycleRotation();
+    },
+    info(): { key: string | null; rotation: number | null; valid: boolean; ghost: string } {
+      const t = buildController.getTarget();
+      return {
+        key: t ? slotKey(t.slot) : null,
+        rotation: t ? t.rotation : null,
+        valid: buildController.isValid(),
+        ghost: buildController.ghostColorState(),
+      };
     },
   },
 };
