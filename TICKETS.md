@@ -104,7 +104,7 @@ Notes on batching:
 - A Playwright screenshot of the empty island is captured as a visual baseline.
 - No external asset files; everything original and generated in-repo.
 
-**Verification note**: _to fill in when implemented_
+**Verification note**: Done. `src/world/grid.ts` is the single source of truth (CELL_SIZE 4, CELL_HEIGHT 3, 40x40 island = 160x160 units centered on origin) with cell/world helpers; `grid.test.ts` (5 tests) verifies origin/center/inverse/bounds/clamp. `World` (`island.ts`) assembles a grass ground (procedural `makeGrassTexture`, no image files), a build-grid `LineSegments` overlay whose vertices are all exact multiples of CELL_SIZE, a procedural gradient sky dome with sun glow (`sky.ts`), a water ring, and distant instanced low-poly hills, plus hemisphere + shadow-casting directional light and blended fog. Playwright `world.spec.ts`: baseline screenshot `t03-island.png` (grid reads clearly, sky/ground/water/hills present, zero console errors) and a test asserting every grid vertex lands on the 4-unit lattice. All textures generated in-repo; no external asset files.
 
 ### T04: Input action map and rebindable bindings core
 
