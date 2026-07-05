@@ -164,7 +164,7 @@ Notes on batching:
 - Design doc records the originality review checklist.
 - Turntable debug scene reachable via a query param for review and Playwright screenshots.
 
-**Verification note**: _to fill in when implemented_
+**Verification note**: Done. `src/character/` builds the hero entirely in code: `skeleton-def.ts` (18-bone humanoid in bind-pose world space), `hero.ts` merges primitive parts into one geometry with per-vertex color blocking (teal/slate/copper courier outfit), auto two-bone distance weighting for smooth joints, a procedural fabric texture (`textures.ts`, canvas-generated, no image files), and an original Mattock tool parented to the right wrist bone. The hero replaces the capsule in the world (`Player`). `?turntable` boots a review scene (`turntable.ts`) with bone-posing controls. `DESIGN.md` records the originality checklist (no Epic assets/likeness/trade dress, no llamas/Battle Bus/Peely, original tool). Playwright `character.spec.ts` (3): confirms an 18-bone SkinnedMesh with skinIndex + vertex colors and a canvas-backed map, bounding-box height 1.7-1.95 units (correct scale), that posing elbow/knee/shoulder bones deforms the skin without errors (screenshots `t07-front.png` and `t07-posed.png`), and that zero external image/model asset files are requested. Skinning shows no gaps at posed joints in the review screenshots.
 
 ### T08: Character animation states and aim facing (FEEL-GATED)
 

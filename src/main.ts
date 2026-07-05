@@ -7,16 +7,23 @@ import { DebugInputOverlay } from "./input/debug-input-overlay.ts";
 import { Player } from "./player/player.ts";
 import { CameraRig } from "./player/camera-rig.ts";
 import { makeBox } from "./player/collision.ts";
+import { bootTurntable } from "./character/turntable.ts";
 
-// T05 bootstrap: island, input, player capsule placeholder, and the
-// third-person camera rig. Movement (T06) and the real character (T07) build
-// on the Player and CameraRig systems added here.
+// Island, input, player (original hero), and the third-person camera rig.
+// The ?turntable query param launches the character review scene instead.
 
 const app = document.getElementById("app");
 if (!app) {
   throw new Error("Missing #app root element");
 }
 
+if (new URLSearchParams(location.search).has("turntable")) {
+  bootTurntable(app);
+} else {
+  bootGame(app);
+}
+
+function bootGame(app: HTMLElement): void {
 const game = new Game({ parent: app });
 
 const input = new InputSystem();
@@ -109,3 +116,4 @@ const debug = {
   }
 ).__fort = { game, input, player, cameraRig, debug };
 (window as unknown as { __fortReady?: boolean }).__fortReady = true;
+}
