@@ -394,3 +394,73 @@ Co-located so Phase 2 can build the ranked delta table. The Fort values come fro
 - Next phase (not started): Phase 2 gap analysis, which turns this X column and
   the audit's Y column into a ranked, mechanics-first delta table in
   `docs/gap-analysis.md`.
+
+## T26 parity observation pass (Run B, dated 2026-07-05)
+
+Timeboxed observation feeding Run B tickets T27, T28, and T35, per the T26 plan
+entry. No live Fortnite client was available in this session, so observation drew
+on current community references (wiki and building-edit guides) rather than
+frame-accurate gameplay capture. Each item is dated and given a confidence; where
+a value could not be freshly verified, the rule is "unverified, keeping Fort's
+current values." This section is authoritative for the three T26 items; the
+Phase 1 tables above are left as the historical dossier and are not re-synced
+here.
+
+Fort's current values referenced below: CELL_SIZE 4.8, CELL_HEIGHT 3.6 (T23);
+MOVE.runSpeed 5.5, sprintSpeed 6.6, jumpApex ~1.50 (movement-tuning.ts);
+TURBO_INTERVAL 0.05, TURBO_FIRST_DELAY 0.15, REPLACE_COOLDOWN 0.15 (T25);
+minimap top-right (hud/minimap).
+
+### 1. Movement timing (jog / sprint tile cross, jump apex): UNVERIFIED, kept
+
+- Not freshly measurable here. Epic does not publish jog or sprint speeds, jump
+  velocity, or gravity, and no live client or frame-accurate video was available
+  this session to time a tile crossing or a jump against a wall. Confidence: low
+  (unchanged from Phase 1, Area 4).
+- Best available community estimates (carried from Phase 1): jog ~500 uu/s
+  (~5.0 m/s), sprint ~640 uu/s (~6.4 m/s), jump apex ~0.9 to 1.0 m (about half a
+  player, roughly 24 to 26 percent of a 384 uu wall).
+- Converted to Fort units (one 4.8 tile, one 3.6 wall):
+  - Community jog: 512 uu / 500 uu/s = 1.02 s per tile, so a Fort jog of ~4.7 u/s
+    (4.8 / 1.02).
+  - Community sprint: 512 / 640 = 0.80 s per tile, so a Fort sprint of ~6.0 u/s
+    (4.8 / 0.80); sprint-to-jog ratio ~1.28.
+  - Community jump: ~25 percent of a wall, so ~0.9 u apex against Fort's 3.6 wall.
+  - Fort TODAY crosses a tile in 4.8 / 5.5 = 0.87 s (jog) and 4.8 / 6.6 = 0.73 s
+    (sprint), and jumps to ~1.50 u = ~42 percent of a wall: faster and floatier
+    than the community estimates.
+- Verdict for T27 and T28: the community cross-times and jump fraction line up
+  with the plan's T27/T28 starting values (run 4.7, sprint 6.0, apex 0.9 = 25
+  percent of a wall); no fresh number overrides them, so those remain the
+  starting targets, to be accepted or nudged at the feel gate (where a live
+  client or capture can time them if one is available). Confidence: low.
+
+### 2. Floor / ramp / cone edit tile counts: CONFIRMED
+
+- Wall 3 x 3 (settled). Confidence: high.
+- Floor 2 x 2, cone/pyramid (roof) 2 x 2, stairs direction-based (re-face or
+  narrow the ramp), corroborated across current community building-edit guides.
+  Confidence: medium-high (independent references agree; Epic publishes no spec).
+  This resolves the Phase 1 open question (floor "3 x 3 claimed, likely 2 x 2"):
+  floor is 2 x 2.
+- Fort already uses wall 3 x 3 and floor/stairs/roof 2 x 2 (edit-grid.ts), so
+  Fort MATCHES. The T26 conditional follow-up (a coupled edit-grid.ts plus
+  variants-catalog.ts floor-grid change) is NOT triggered; no future ticket is
+  needed for this.
+
+### 3. Minimap corner: CONFIRMED top-right; Fort matches
+
+- Current Fortnite Battle Royale shows the mini-map in the TOP-RIGHT corner by
+  default (HUD elements are player-repositionable, but top-right is the default).
+  Confidence: medium-high (multiple current community references agree). This
+  corrects the Phase 1 Area 7 aside that said "top-left minimap in BR", which was
+  low confidence and wrong.
+- Fort's minimap is already top-right (hud/minimap), so Fort MATCHES. T35's
+  conditional "minimap moves only if T26 confirms" is therefore NOT triggered:
+  the minimap stays top-right.
+
+Sources (accessed 2026-07-05): Fortnite Fandom Building wiki and current
+community building-edit guides (edit-grid tile counts); Orcz Fortnite Battle
+Royale Mini-map and GameRevolution Fortnite minimap guide (minimap corner).
+Movement numbers remain community estimates with no citable primary and are held
+at low confidence, per the brief's rule against trusting a single hobbyist source.
