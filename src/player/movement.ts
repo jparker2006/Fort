@@ -50,7 +50,22 @@ export class MovementController {
     const strafe = (this.input.isDown("moveRight") ? 1 : 0) - (this.input.isDown("moveLeft") ? 1 : 0);
     const crouching = s.crouching;
     const forwardDominant = f > 0 && f >= Math.abs(strafe);
-    const sprinting = this.input.isDown("sprint") && forwardDominant && !crouching;
+    const wantSprint = this.input.isDown("sprint") && forwardDominant && !crouching;
+
+    // Stamina gate (T29): once drained to zero, latch sprint off until stamina
+    // recovers above the re-engage fraction (hysteresis, so it will not flicker
+    // at empty).
+    if (s.stamina <= 0) s.sprintBlocked = true;
+    else if (s.stamina >= MOVE.staminaMax * MOVE.staminaReengage) s.sprintBlocked = false;
+    const sprinting = wantSprint && !s.sprintBlocked;
+    // Sprint-active (the drain/boost condition) additionally requires the feet on
+    // the ground; airborne neither drains nor regenerates.
+    const sprintActive = sprinting && s.onGround;
+    if (s.onGround) {
+      s.stamina = sprintActive
+        ? Math.max(0, s.stamina - MOVE.staminaDrain * dt)
+        : Math.min(MOVE.staminaMax, s.stamina + MOVE.staminaRegen * dt);
+    }
 
     // World-space move direction from camera yaw. Forward = (-sin, -cos).
     const yaw = this.yawSource();
@@ -97,7 +112,10 @@ export class MovementController {
     this.buffer = Math.max(0, this.buffer - dt);
     if (this.input.justPressed("jump")) this.buffer = MOVE.jumpBuffer;
     if (this.buffer > 0 && this.coyote > 0) {
-      s.velocity.y = MOVE.jumpSpeed;
+      // Sprint-jump: a jump that STARTS while sprint-active leaves the ground
+      // faster (apex scales by the square of the boost). A mid-air sprint press
+      // cannot boost an in-flight jump because sprintActive requires grounding.
+      s.velocity.y = sprintActive ? MOVE.jumpSpeed * MOVE.sprintJumpBoost : MOVE.jumpSpeed;
       s.onGround = false;
       this.coyote = 0;
       this.buffer = 0;

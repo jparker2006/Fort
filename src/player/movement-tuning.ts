@@ -42,6 +42,19 @@ export const MOVE = {
   coyoteTime: 0.06,
   jumpBuffer: 0.08,
   stepHeight: 0.6,
+  // T29 sprint stamina. While sprint-active (sprint held, forward-dominant,
+  // grounded, not crouching) stamina drains staminaDrain per second, so a full
+  // bar lasts staminaMax seconds (6 s). Off sprint it regenerates staminaRegen
+  // per second (empty to full in 3 s). Once emptied sprint is blocked until
+  // stamina recovers above staminaReengage of the max (hysteresis, no flicker).
+  // A jump that STARTS while sprint-active multiplies takeoff velocity by
+  // sprintJumpBoost, so the apex scales by its square (~1.21x). Airborne freezes
+  // both drain and regen. The feel gate may cut the drain or lengthen staminaMax.
+  staminaMax: 6.0,
+  staminaDrain: 1.0,
+  staminaRegen: 2.0,
+  staminaReengage: 0.15,
+  sprintJumpBoost: 1.1,
   /** Documented Fortnite-relative apex target for the automated arc test. */
   jumpApexTarget: 0.9,
 } as const;

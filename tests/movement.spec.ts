@@ -205,6 +205,38 @@ test("a bare jump apexes about a quarter up a full wall and cannot mount it (T28
   expect(fall.last.y).toBeLessThan(0.3); // ended on the ground, did not mount
 });
 
+test("sprint drains the stamina bar and reveals it; full hides it (T29)", async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => (window as unknown as FortWin).__fort.debug.pump(2));
+
+  // At full, the bar is present but hidden (faded out at full).
+  const atFull = await page.evaluate(() => {
+    const f = (window as unknown as FortWin).__fort;
+    const el = document.querySelector("#hud-stamina") as HTMLElement | null;
+    return { stamina: f.debug.player.stamina(), full: el?.dataset.full, opacity: el?.style.opacity };
+  });
+  expect(atFull.stamina).toBeCloseTo(1, 2);
+  expect(atFull.full).toBe("true");
+  expect(atFull.opacity).toBe("0");
+
+  // Hold sprint forward through pumped frames: stamina drains and the bar shows.
+  await page.keyboard.down("KeyW");
+  await page.keyboard.down("ShiftLeft"); // sprint
+  await page.evaluate(() => (window as unknown as FortWin).__fort.debug.pump(180)); // ~3 s
+  const draining = await page.evaluate(() => {
+    const f = (window as unknown as FortWin).__fort;
+    const el = document.querySelector("#hud-stamina") as HTMLElement | null;
+    return { stamina: f.debug.player.stamina(), full: el?.dataset.full, opacity: el?.style.opacity };
+  });
+  await page.screenshot({ path: `${EVIDENCE_DIR}/after-stamina-hud.png` });
+  await page.keyboard.up("KeyW");
+  await page.keyboard.up("ShiftLeft");
+
+  expect(draining.stamina).toBeLessThan(0.9); // clearly drained from full
+  expect(draining.full).toBe("false");
+  expect(draining.opacity).toBe("1"); // bar now visible
+});
+
 test("running into a wall does not explode or produce NaN", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => {

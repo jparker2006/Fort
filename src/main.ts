@@ -111,6 +111,7 @@ const hud = new Hud(app, {
   piece: () => buildController.getPieceType(),
   material: () => buildController.getMaterial(),
   bindLabel: (action) => formatBindLabel(input.bindings.get(action)),
+  stamina: () => player.state.staminaFraction,
 });
 game.add(hud);
 
@@ -221,6 +222,12 @@ const debug = {
   boneRotX(name: string): number {
     const b = player.getHero().bones.get(name);
     return b ? b.rotation.x : 0;
+  },
+  // Player state probes (T29).
+  player: {
+    stamina(): number {
+      return player.state.staminaFraction;
+    },
   },
   // Build model helpers (T09): place pieces by cell address and inspect state.
   build: {

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { MOVE } from "./movement-tuning.ts";
 
 // Shared player state. T05 uses position, crouch, and eye height for the camera
 // pivot; T06 fills in the movement that drives position and velocity.
@@ -30,6 +31,17 @@ export class PlayerState {
 
   /** 0 = standing, 1 = fully crouched; smoothed each fixed step. */
   crouchBlend = 0;
+
+  /** Sprint stamina in seconds (T29); starts full. */
+  stamina: number = MOVE.staminaMax;
+  /** Latched true when stamina reaches zero; cleared once it recovers above the
+   * re-engage fraction, so sprint cannot flicker on and off at empty. */
+  sprintBlocked = false;
+
+  /** Stamina as a 0..1 fraction, for the HUD bar and the debug probe. */
+  get staminaFraction(): number {
+    return this.stamina / MOVE.staminaMax;
+  }
 
   /** Advance the crouch blend toward the current crouch intent. */
   updateCrouchBlend(dt: number): void {

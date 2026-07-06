@@ -148,6 +148,132 @@ describe("movement: cell-crossing cadence (T27)", () => {
   });
 });
 
+describe("movement: sprint stamina (T29)", () => {
+  function sprintSim() {
+    const input = new FakeInput();
+    input.held.add("moveForward");
+    input.held.add("sprint");
+    const world = new CollisionWorld();
+    return { input, ...sim(input, world) };
+  }
+
+  // Sprint until the empty latch trips (~staminaMax seconds of drain). Once
+  // empty, sprint blocks and the player jogs, so stamina starts regenerating
+  // again; this stops exactly at the moment it first bottoms out.
+  const drainToEmpty = (state: { sprintBlocked: boolean }, ctrl: { step: (dt: number) => void }) => {
+    for (let i = 0; i < 2000 && !state.sprintBlocked; i++) ctrl.step(DT);
+  };
+
+  it("drains to zero over staminaMax seconds, then speed falls to run", () => {
+    const { state, ctrl } = sprintSim();
+    let steps = 0;
+    let minStamina: number = MOVE.staminaMax;
+    for (; steps < 2000 && !state.sprintBlocked; steps++) {
+      ctrl.step(DT);
+      minStamina = Math.min(minStamina, state.stamina);
+    }
+    expect(state.sprintBlocked).toBe(true);
+    expect(minStamina).toBeCloseTo(0, 3); // bottomed out at empty
+    expect(steps * DT).toBeCloseTo(MOVE.staminaMax, 0); // took ~staminaMax seconds
+    // Sprint is now latched off; before regen climbs back over the re-engage
+    // fraction (~0.45 s away), the speed has decayed to the jog speed.
+    for (let i = 0; i < Math.round(0.3 / DT); i++) ctrl.step(DT);
+    expect(state.sprintBlocked).toBe(true);
+    expect(Math.hypot(state.velocity.x, state.velocity.z)).toBeCloseTo(MOVE.runSpeed, 1);
+  });
+
+  it("refills empty to full in about 3 s when not sprinting", () => {
+    const { input, state, ctrl } = sprintSim();
+    drainToEmpty(state, ctrl);
+    input.held.delete("sprint"); // stop sprinting; regen kicks in
+    for (let i = 0; i < Math.round(MOVE.staminaMax / MOVE.staminaRegen / DT) + 2; i++) ctrl.step(DT);
+    expect(state.stamina).toBeCloseTo(MOVE.staminaMax, 1);
+  });
+
+  it("stays blocked below the re-engage fraction, then unblocks above it", () => {
+    const { input, state, ctrl } = sprintSim();
+    drainToEmpty(state, ctrl);
+    input.held.delete("sprint");
+    const reengage = MOVE.staminaMax * MOVE.staminaReengage;
+    while (state.stamina < reengage - 0.1) ctrl.step(DT);
+    expect(state.sprintBlocked).toBe(true); // recovering but still under 15 percent
+    while (state.stamina < reengage + 0.1) ctrl.step(DT);
+    expect(state.sprintBlocked).toBe(false); // crossed the threshold, sprint allowed again
+  });
+
+  function jumpApexSim(sprint: boolean): number {
+    const input = new FakeInput();
+    input.held.add("moveForward");
+    if (sprint) input.held.add("sprint");
+    const world = new CollisionWorld();
+    const { state, ctrl } = sim(input, world);
+    for (let i = 0; i < 30; i++) ctrl.step(DT); // spin up (grounded) so sprint is active
+    input.press("jump");
+    let maxY = 0;
+    for (let i = 0; i < 400; i++) {
+      ctrl.step(DT);
+      input.endFrame();
+      maxY = Math.max(maxY, state.position.y);
+      if (i > 2 && state.onGround) break;
+    }
+    return maxY;
+  }
+
+  it("a sprint-jump apex is the base apex times the boost squared (~1.21x)", () => {
+    const ratio = jumpApexSim(true) / jumpApexSim(false);
+    expect(ratio).toBeCloseTo(MOVE.sprintJumpBoost ** 2, 1);
+  });
+
+  it("crouching with sprint held drains nothing", () => {
+    const input = new FakeInput();
+    input.held.add("moveForward");
+    input.held.add("sprint");
+    const world = new CollisionWorld();
+    const { state, ctrl } = sim(input, world);
+    for (let i = 0; i < 120; i++) {
+      state.crouching = true; // crouch disables sprint, so no drain
+      ctrl.step(DT);
+    }
+    expect(state.stamina).toBeCloseTo(MOVE.staminaMax, 5); // stayed full
+  });
+
+  it("airborne freezes stamina drain", () => {
+    const { input, state, ctrl } = sprintSim();
+    for (let i = 0; i < 30; i++) ctrl.step(DT); // sprint on the ground
+    input.press("jump");
+    let airborne = -1;
+    for (let i = 0; i < 400; i++) {
+      ctrl.step(DT);
+      input.endFrame();
+      if (!state.onGround) {
+        if (airborne < 0) airborne = state.stamina;
+        else expect(state.stamina).toBeCloseTo(airborne, 6); // frozen while off the ground
+      } else if (airborne >= 0 && i > 2) {
+        break;
+      }
+    }
+    expect(airborne).toBeGreaterThan(0);
+  });
+
+  it("pressing sprint mid-air does not boost an in-flight jump", () => {
+    const input = new FakeInput();
+    const world = new CollisionWorld();
+    const { state, ctrl } = sim(input, world);
+    input.press("jump"); // a plain jump from rest (not sprinting)
+    ctrl.step(DT);
+    input.endFrame();
+    input.held.add("moveForward");
+    input.held.add("sprint"); // pressed only after leaving the ground
+    let maxY = state.position.y;
+    for (let i = 0; i < 400; i++) {
+      ctrl.step(DT);
+      maxY = Math.max(maxY, state.position.y);
+      if (i > 2 && state.onGround) break;
+    }
+    expect(maxY).toBeCloseTo(MOVE.jumpApexTarget, 1); // base apex, no boost
+  });
+});
+
 describe("movement: air control", () => {
   it("can reverse horizontal direction mid-jump", () => {
     const input = new FakeInput();

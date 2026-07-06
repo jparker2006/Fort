@@ -27,6 +27,8 @@ export interface HudSources {
   piece(): PieceType;
   material(): Material;
   bindLabel(action: Action): string;
+  /** Sprint stamina as a 0..1 fraction (T29); 1 hides the bar. */
+  stamina(): number;
 }
 
 const PIECES: ReadonlyArray<{ type: PieceType; action: Action; icon: string }> = [
@@ -50,6 +52,8 @@ export class Hud implements System {
   private readonly crosshair: HTMLElement;
   private readonly modeEl: HTMLElement;
   private readonly materialEl: HTMLElement;
+  private readonly staminaEl: HTMLElement;
+  private readonly staminaFill: HTMLElement;
   private readonly slots = new Map<PieceType, { el: HTMLElement; key: HTMLElement }>();
   private unsubscribe: (() => void) | null = null;
 
@@ -65,6 +69,8 @@ export class Hud implements System {
     this.crosshair = this.q("#hud-crosshair");
     this.modeEl = this.q("#hud-mode");
     this.materialEl = this.q("#hud-material");
+    this.staminaEl = this.q("#hud-stamina");
+    this.staminaFill = this.q("#hud-stamina-fill");
     for (const p of PIECES) {
       const el = this.q(`.tray-slot[data-piece="${p.type}"]`);
       this.slots.set(p.type, { el, key: el.querySelector(".tray-key") as HTMLElement });
@@ -89,6 +95,15 @@ export class Hud implements System {
     }
 
     this.materialEl.dataset.material = this.sources.material();
+
+    // Sprint stamina bar (T29): fill tracks the fraction; the bar fades out at
+    // full so it only shows while it matters, and shifts colour when low.
+    const st = Math.max(0, Math.min(1, this.sources.stamina()));
+    this.staminaFill.style.width = `${st * 100}%`;
+    this.staminaFill.style.background = st <= 0.15 ? "#e8503a" : "#39d98a";
+    const full = st >= 0.999;
+    this.staminaEl.dataset.full = full ? "true" : "false";
+    this.staminaEl.style.opacity = full ? "0" : "1";
   }
 
   /** Read the current tray key label for a piece (test helper). */
@@ -127,6 +142,9 @@ export class Hud implements System {
             <span class="mat-count">&#8734;</span>
           </div>
         </div>
+      </div>
+      <div id="hud-stamina" data-full="true" style="position:absolute;left:50%;bottom:9%;transform:translateX(-50%);width:180px;height:6px;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.25);border-radius:3px;overflow:hidden;opacity:0;transition:opacity 0.2s ease;">
+        <div id="hud-stamina-fill" style="height:100%;width:100%;background:#39d98a;transition:width 0.1s linear,background 0.2s ease;"></div>
       </div>`;
   }
 
