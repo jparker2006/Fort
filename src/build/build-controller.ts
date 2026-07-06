@@ -239,7 +239,7 @@ export class BuildController implements System {
       playerBox: this.player.getCollisionBox(),
     });
     this.valid = res.ok;
-    this.ghost.show(pieceType(this.target.slot), this.target.slot, this.target.rotation, this.valid);
+    this.ghost.show(pieceType(this.target.slot), this.target.slot, this.target.rotation, this.valid, this.material);
   }
 
   /** Place the currently targeted piece with the active material. */

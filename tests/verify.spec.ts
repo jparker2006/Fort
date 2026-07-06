@@ -139,11 +139,12 @@ test("ghost is blue on a valid slot and red on an occupied one", async ({ page }
   // Clip tight to the crosshair region where the ghost renders.
   const clip = { x: 520, y: 240, width: 240, height: 240 };
 
-  // Valid slot: the ghost is blue (0x2f7fff), blue channel dominant.
+  // Valid slot: the ghost is blue, tinted 35 percent toward the default wood
+  // material (T34), with the blue channel still dominant.
   let info = await targetInfo(page);
   expect(info.ghost).toBe("valid");
   const blueHex: number = await ghostHex(page);
-  expect(blueHex).toBe(0x2f7fff);
+  expect(blueHex).toBe(0x5377b6); // VALID_COLOR blended 0.35 toward wood #96682f
   expect(blueHex & 0xff).toBeGreaterThan((blueHex >> 16) & 0xff); // B > R
   const blueShot = await page.screenshot({ path: `${EVIDENCE_DIR}/t21-ghost-blue.png`, clip });
 
