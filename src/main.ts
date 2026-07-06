@@ -50,7 +50,8 @@ const input = new InputSystem();
 // Input stays disabled until the session enters the playing state (T18 gates it
 // behind the title screen's Play click and pointer lock).
 game.add(input);
-game.add(new World());
+const world = new World();
+game.add(world);
 
 const player = new Player(input);
 game.add(player);
@@ -229,6 +230,32 @@ const debug = {
       return player.state.staminaFraction;
     },
   },
+  // World rendering probes (T31): tone mapping + lighting rig, read straight
+  // off the renderer and the retained light handles (no pixel reads).
+  world: {
+    lighting(): {
+      toneMapping: string;
+      exposure: number;
+      hemisphere: number;
+      sun: number;
+      hemiSky: number;
+      hemiGround: number;
+      sunColor: number;
+    } {
+      return {
+        toneMapping:
+          game.renderer.toneMapping === THREE.ACESFilmicToneMapping
+            ? "aces"
+            : String(game.renderer.toneMapping),
+        exposure: game.renderer.toneMappingExposure,
+        ...world.lighting(),
+      };
+    },
+    // Sky v2 gradient + sun uniforms (T33), read off the retained material.
+    sky(): { zenith: number; mid: number; horizon: number; sunColor: number } {
+      return world.sky();
+    },
+  },
   // Build model helpers (T09): place pieces by cell address and inspect state.
   build: {
     wall(cx: number, cy: number, cz: number, dir: "N" | "S" | "E" | "W", opts: BuildDebugOpts = {}): boolean {
@@ -252,6 +279,17 @@ const debug = {
     },
     scatter(n: number): number {
       return build.debugScatter(n);
+    },
+    // T32 determinism seam: generate a fresh procedural material and hash its
+    // source canvas. A CanvasTexture's .image IS the canvas it was built from,
+    // so toDataURL() captures the exact generated pixels (no new export). The
+    // material is disposed immediately; this is a probe, not a placed piece.
+    materialDataURL(material: Material): string {
+      const mat = makeBuildMaterial(material);
+      const url = (mat.map!.image as HTMLCanvasElement).toDataURL();
+      mat.map!.dispose();
+      mat.dispose();
+      return url;
     },
     placeSlotKey(key: string, opts: BuildDebugOpts = {}): boolean {
       return build.place(decodeSlotKey(key), opts);

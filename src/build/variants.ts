@@ -60,11 +60,19 @@ function anchored(g: THREE.BufferGeometry, halfHeight: number): THREE.BufferGeom
   return g;
 }
 
+// Flat fallbacks for the Node unit runs (no canvas). Matched to the T32
+// procedural material field hues so tinting math agrees browser vs node.
 const MATERIAL_COLOR: Record<Material, number> = {
-  wood: 0x9c6b3f,
-  stone: 0x8a8f96,
-  metal: 0x6f7c8a,
+  wood: 0x96682f,
+  stone: 0x6f747c,
+  metal: 0x67788a,
 };
+
+/** The base field hue for a material (T32 palette). Shared so the ghost tint
+ *  (T34) blends toward the same colour the placed piece reads as. */
+export function materialBaseColor(material: Material): number {
+  return MATERIAL_COLOR[material];
+}
 
 /** Placeholder material per material id (T11 swaps in procedural textures). */
 export function baseMaterial(material: Material): THREE.MeshStandardMaterial {

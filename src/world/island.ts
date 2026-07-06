@@ -9,6 +9,7 @@ import {
 } from "./grid.ts";
 import { makeGrassTexture } from "./textures.ts";
 import { makeSky } from "./sky.ts";
+import { PALETTE } from "./palette.ts";
 
 // The creative island: flat buildable ground, a build-grid overlay aligned to
 // the cell lattice, a procedural sky with sun, a surrounding water ring and
@@ -20,6 +21,14 @@ export class World implements System {
 
   private readonly group = new THREE.Group();
   private disposables: Array<{ dispose: () => void }> = [];
+
+  // Retained light handles (T31): World keeps its hemisphere and sun so the
+  // lighting rig can be read back deterministically (debug.world.lighting).
+  private hemi: THREE.HemisphereLight | null = null;
+  private sun: THREE.DirectionalLight | null = null;
+  // Retained sky material handle (T33): exposes its gradient/sun uniforms for
+  // the debug.world.sky probe, same ownership pattern as the lights.
+  private skyMaterial: THREE.ShaderMaterial | null = null;
 
   init(game: Game): void {
     game.scene.add(this.group);
@@ -39,18 +48,20 @@ export class World implements System {
   private buildSky(game: Game): void {
     const sky = makeSky();
     this.sunDirection.copy(sky.sunDirection);
+    this.skyMaterial = sky.material;
     this.group.add(sky.mesh);
     this.track(sky.mesh.geometry);
     this.track(sky.mesh.material as THREE.Material);
     // Subtle fog blends the island edge into the horizon haze.
-    game.scene.fog = new THREE.Fog(0xbfe4ec, ISLAND_HALF * 1.4, ISLAND_HALF * 4.5);
+    game.scene.fog = new THREE.Fog(PALETTE.fog, ISLAND_HALF * 1.4, ISLAND_HALF * 4.5);
   }
 
   private buildLighting(game: Game): void {
-    const hemi = new THREE.HemisphereLight(0xdfeffb, 0x3a5233, 0.9);
+    const hemi = new THREE.HemisphereLight(PALETTE.hemiSky, PALETTE.hemiGround, 1.25);
     game.scene.add(hemi);
+    this.hemi = hemi;
 
-    const sun = new THREE.DirectionalLight(0xfff2cc, 2.1);
+    const sun = new THREE.DirectionalLight(PALETTE.sun, 1.8);
     sun.position.copy(this.sunDirection).multiplyScalar(120);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -66,6 +77,37 @@ export class World implements System {
     sun.shadow.normalBias = 0.04;
     game.scene.add(sun);
     game.scene.add(sun.target);
+    this.sun = sun;
+  }
+
+  /** Read-back of the lighting rig for deterministic probes (T31). Intensities
+   *  and the warm/cool tint hexes, with no pixel reads. */
+  lighting(): {
+    hemisphere: number;
+    sun: number;
+    hemiSky: number;
+    hemiGround: number;
+    sunColor: number;
+  } {
+    return {
+      hemisphere: this.hemi?.intensity ?? 0,
+      sun: this.sun?.intensity ?? 0,
+      hemiSky: this.hemi?.color.getHex() ?? 0,
+      hemiGround: this.hemi?.groundColor.getHex() ?? 0,
+      sunColor: this.sun?.color.getHex() ?? 0,
+    };
+  }
+
+  /** Read-back of the sky material's uniforms for deterministic probes (T33).
+   *  Gradient stops and sun tint as hexes; no pixel reads. */
+  sky(): { zenith: number; mid: number; horizon: number; sunColor: number } {
+    const u = this.skyMaterial?.uniforms;
+    return {
+      zenith: (u?.uZenith?.value as THREE.Color | undefined)?.getHex() ?? 0,
+      mid: (u?.uMid?.value as THREE.Color | undefined)?.getHex() ?? 0,
+      horizon: (u?.uHorizon?.value as THREE.Color | undefined)?.getHex() ?? 0,
+      sunColor: (u?.uSunColor?.value as THREE.Color | undefined)?.getHex() ?? 0,
+    };
   }
 
   private buildGround(): void {
