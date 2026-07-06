@@ -21,6 +21,9 @@ const count = (page: import("@playwright/test").Page) =>
   page.evaluate(() => (window as unknown as FortWin).__fort.debug.build.count());
 const swing = (page: import("@playwright/test").Page) =>
   page.evaluate(() => (window as unknown as FortWin).__fort.debug.destroy.swing());
+// Pump enough sim seconds (60 frames ~ 1 s) to mature a piece by `seconds` HP
+// (T30: pieces spawn at half HP and harden +1 HP per second).
+const mature = (page: import("@playwright/test").Page, seconds: number) => pump(page, seconds * 60 + 6);
 
 // Place a wall ahead of the player and aim the Mattock at it.
 async function wallAhead(page: import("@playwright/test").Page, material: string) {
@@ -37,9 +40,22 @@ async function wallAhead(page: import("@playwright/test").Page, material: string
   }, material);
 }
 
-test("wood breaks in two swings and frees its slot", async ({ page }) => {
+test("a fresh wood wall breaks in one swing (T30)", async ({ page }) => {
+  await ready(page);
+  await wallAhead(page, "wood"); // fresh: spawns at 1 HP (half of full 2)
+  const before = await count(page);
+  expect(before).toBeGreaterThan(0);
+
+  const only = await swing(page);
+  expect(only).toBe("destroyed"); // one swing on fresh wood
+  await pump(page, 2);
+  expect(await count(page)).toBe(before - 1);
+});
+
+test("a matured wood wall breaks in two swings and frees its slot", async ({ page }) => {
   await ready(page);
   await wallAhead(page, "wood");
+  await mature(page, 1); // harden 1 -> 2 HP (full wood)
   const before = await count(page);
   expect(before).toBeGreaterThan(0);
 
@@ -57,12 +73,13 @@ test("wood breaks in two swings and frees its slot", async ({ page }) => {
 
 test("tougher materials take more swings", async ({ page }) => {
   await ready(page);
-  await wallAhead(page, "metal"); // 5 hit points
+  await wallAhead(page, "metal");
+  await mature(page, 3); // harden 3 -> 6 HP (full metal)
 
   const results: string[] = [];
-  for (let i = 0; i < 5; i++) results.push(await swing(page));
-  expect(results.slice(0, 4)).toEqual(["damaged", "damaged", "damaged", "damaged"]);
-  expect(results[4]).toBe("destroyed");
+  for (let i = 0; i < 6; i++) results.push(await swing(page));
+  expect(results.slice(0, 5)).toEqual(["damaged", "damaged", "damaged", "damaged", "damaged"]);
+  expect(results[5]).toBe("destroyed");
 });
 
 test("a swing hits only the nearest piece, never one behind it", async ({ page }) => {
@@ -81,6 +98,7 @@ test("a swing hits only the nearest piece, never one behind it", async ({ page }
   });
   const nearKey = "wz:2:0:0";
   const farKey = "wz:1:0:0";
+  await mature(page, 1); // both walls harden to full wood (2 HP)
 
   // Two swings destroy only the near wall; the far one keeps full hit points.
   await swing(page);
@@ -109,7 +127,8 @@ test("destroying a floor drops a player standing on it", async ({ page }) => {
   const onFloor = await page.evaluate(() => (window as unknown as FortWin).__fort.debug.playerPos().y);
   expect(onFloor).toBeGreaterThan(2.5);
 
-  // Two swings break the wood floor; the player falls.
+  // One swing breaks the fresh wood floor (1 HP; the second is a harmless no-op)
+  // and the player falls.
   await swing(page);
   await swing(page);
   await pump(page, 60);

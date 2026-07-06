@@ -95,6 +95,25 @@ test("a debug removal arms the replace cooldown, which the model clock clears (T
   expect(reopened).toBe(true);
 });
 
+test("maturation is frozen while the game is paused, then resumes (T30)", async ({ page }) => {
+  await ready(page);
+  // A fresh metal wall spawns at 3 HP (half of full 6).
+  await page.evaluate(() => (window as unknown as FortWin).__fort.debug.build.wall(0, 0, 0, "S", { material: "metal" }));
+  const key = "wz:0:0:0";
+  const hp = () => page.evaluate((k) => (window as unknown as FortWin).__fort.debug.build.hpAt(k), key);
+  expect(await hp()).toBe(3);
+
+  // Pause: pumped frames skip fixedUpdate, so the model clock never advances.
+  await page.evaluate(() => (window as unknown as FortWin).__fort.debug.settings.open());
+  await pump(page, 200); // ~3.3 s of frames, but paused
+  expect(await hp()).toBe(3); // frozen, no maturation
+
+  // Resume and pump ~1 s: it hardens one step.
+  await page.evaluate(() => (window as unknown as FortWin).__fort.debug.settings.close());
+  await pump(page, 66);
+  expect(await hp()).toBe(4);
+});
+
 test("a built structure blocks the camera spring arm", async ({ page }) => {
   await ready(page);
   // Place a wall directly behind the player and confirm no page errors while

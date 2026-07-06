@@ -101,11 +101,15 @@ interface StoredPiece {
   instanceIndex: number;
   colliders: BoxHandle[];
   hp: number;
+  /** Sim time of this piece's next maturation step, or Infinity when full. Also
+   * the identity an event matches on, so a re-placed slot ignores stale events. */
+  matureAt: number;
 }
 
-// Material-scaled hit points, tuned so wood breaks in 2 Mattock swings (like
-// Fortnite's pickaxe vs. fresh wood) with stone and metal progressively tougher.
-const MATERIAL_HP: Record<Material, number> = { wood: 2, stone: 3, metal: 5 };
+// Material-scaled FULL hit points (T30: Fortnite swings-to-break at full HP),
+// wood softest to metal toughest. A piece is placed at ceil(half) and matures
+// +1 HP per second up to this full value (spawn-at-half maturation).
+const MATERIAL_HP: Record<Material, number> = { wood: 2, stone: 4, metal: 6 };
 
 // After a piece is removed, its slot is briefly locked against an instant
 // rebuild (Fortnite-style replace cadence): you cannot spam-destroy-and-replace
@@ -113,8 +117,73 @@ const MATERIAL_HP: Record<Material, number> = { wood: 2, stone: 3, metal: 5 };
 // model's own tick(dt) clock, so it is deterministic and browser-free.
 export const REPLACE_COOLDOWN = 0.15;
 
+// One maturation step: +1 HP per second until a piece reaches full HP (T30).
+const MATURATION_STEP = 1;
+
+/** Full (matured) hit points for a material. */
 export function hitPointsFor(material: Material): number {
   return MATERIAL_HP[material];
+}
+
+/** Hit points a freshly placed piece starts at, before maturation (ceil half). */
+export function startHitPointsFor(material: Material): number {
+  return Math.ceil(MATERIAL_HP[material] / 2);
+}
+
+// A tiny binary min-heap of maturation events ordered by fire time, so tick()
+// head-checks the earliest due entry in O(1) and does no work when nothing is
+// due (a 500-piece stress tick stays trivial). Destroyed or re-placed pieces are
+// lazily skipped on pop by matching each event against the piece's matureAt.
+interface MatureEvent {
+  key: SlotKey;
+  at: number;
+}
+
+class MatureQueue {
+  private readonly heap: MatureEvent[] = [];
+
+  get size(): number {
+    return this.heap.length;
+  }
+
+  peek(): MatureEvent | undefined {
+    return this.heap[0];
+  }
+
+  push(e: MatureEvent): void {
+    const h = this.heap;
+    h.push(e);
+    let i = h.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (h[p]!.at <= h[i]!.at) break;
+      [h[p], h[i]] = [h[i]!, h[p]!];
+      i = p;
+    }
+  }
+
+  pop(): MatureEvent | undefined {
+    const h = this.heap;
+    if (h.length === 0) return undefined;
+    const top = h[0]!;
+    const last = h.pop()!;
+    if (h.length > 0) {
+      h[0] = last;
+      let i = 0;
+      const n = h.length;
+      for (;;) {
+        let s = i;
+        const l = 2 * i + 1;
+        const r = 2 * i + 2;
+        if (l < n && h[l]!.at < h[s]!.at) s = l;
+        if (r < n && h[r]!.at < h[s]!.at) s = r;
+        if (s === i) break;
+        [h[s], h[i]] = [h[i]!, h[s]!];
+        i = s;
+      }
+    }
+    return top;
+  }
 }
 
 export interface PlaceOptions {
@@ -135,6 +204,8 @@ export class BuildModel {
   // single removal seam (removeAt) and purged on every insert, so it is bounded
   // by the number of removals inside one cooldown window.
   private readonly recentlyFreed = new Map<SlotKey, number>();
+  // Maturation schedule (T30): min-heap of "harden this slot at time T" events.
+  private readonly matureQueue = new MatureQueue();
   private readonly scratch = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
   private readonly pos = new THREE.Vector3();
@@ -159,6 +230,33 @@ export class BuildModel {
    */
   tick(dt: number): void {
     this.simTime += dt;
+    this.matureDue();
+  }
+
+  // Harden every piece whose maturation step has come due (T30). The head-check
+  // exits in O(1) when nothing is due; each matured piece re-queues its next
+  // step until it reaches full HP. Events whose piece was destroyed or re-placed
+  // (matureAt no longer matches) are skipped, so there is no resurrection.
+  private matureDue(): void {
+    const q = this.matureQueue;
+    while (q.size > 0 && q.peek()!.at <= this.simTime) {
+      const e = q.pop()!;
+      const piece = this.pieces.get(e.key);
+      if (!piece || piece.matureAt !== e.at) continue;
+      const full = MATERIAL_HP[piece.material];
+      piece.hp = Math.min(full, piece.hp + 1);
+      if (piece.hp < full) {
+        piece.matureAt = e.at + MATURATION_STEP;
+        q.push({ key: e.key, at: piece.matureAt });
+      } else {
+        piece.matureAt = Infinity;
+      }
+    }
+  }
+
+  /** Pieces still hardening toward full HP (test helper; counts live events). */
+  get maturingCount(): number {
+    return this.matureQueue.size;
   }
 
   /** True while a just-freed slot is still within its replace cooldown window. */
@@ -205,9 +303,15 @@ export class BuildModel {
 
     const key = slotKey(slot);
     const attached = this.attachInstance(key, slot, material, rotation, variant);
+    // Spawn at half HP and schedule maturation to full (T30); a full-at-spawn
+    // material (none today) would skip the schedule entirely.
+    const full = MATERIAL_HP[material];
+    const hp = startHitPointsFor(material);
+    const matureAt = hp < full ? this.simTime + MATURATION_STEP : Infinity;
     this.pieces.set(key, {
-      slot, material, rotation, hp: MATERIAL_HP[material], ...attached,
+      slot, material, rotation, hp, matureAt, ...attached,
     });
+    if (matureAt !== Infinity) this.matureQueue.push({ key, at: matureAt });
     return true;
   }
 

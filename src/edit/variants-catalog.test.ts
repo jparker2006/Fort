@@ -171,4 +171,18 @@ describe("applyEdit swaps the derived views and reset restores them", () => {
     expect(p.material).toBe("metal");
     expect(p.slot).toEqual(slot);
   });
+
+  it("keeps a half-mature piece hardening on its original clock after an edit (T30)", () => {
+    const { model } = makeModel();
+    const slot: Slot = wallOnEdge(0, 0, 0, "S");
+    model.place(slot, { material: "stone" }); // hp 2, matures toward 4
+    model.tick(1);
+    expect(model.hpAt(slot)).toBe(3); // half-mature
+    model.applyEdit(slot, "wall#7"); // edit mid-maturation (same slot key)
+    expect(model.hpAt(slot)).toBe(3); // HP preserved across the edit
+    model.tick(1);
+    expect(model.hpAt(slot)).toBe(4); // kept hardening to full on schedule
+    model.tick(1);
+    expect(model.hpAt(slot)).toBe(4); // capped
+  });
 });

@@ -257,3 +257,78 @@ describe("build model derived views", () => {
     expect(registry.poolCount).toBeLessThanOrEqual(2);
   });
 });
+
+describe("material HP maturation (T30)", () => {
+  it("places at half HP and matures +1 per second up to each material's full HP", () => {
+    const { model } = makeModel();
+    const wood = floorSlot(0, 0, 0);
+    const stone = floorSlot(1, 0, 0);
+    const metal = floorSlot(2, 0, 0);
+    model.place(wood, { material: "wood" });
+    model.place(stone, { material: "stone" });
+    model.place(metal, { material: "metal" });
+
+    // Spawn at ceil(full / 2): wood 1, stone 2, metal 3.
+    expect(model.hpAt(wood)).toBe(1);
+    expect(model.hpAt(stone)).toBe(2);
+    expect(model.hpAt(metal)).toBe(3);
+
+    model.tick(1);
+    expect(model.hpAt(wood)).toBe(2); // full at 2, stops
+    expect(model.hpAt(stone)).toBe(3);
+    expect(model.hpAt(metal)).toBe(4);
+
+    model.tick(1);
+    expect(model.hpAt(stone)).toBe(4); // full at 4
+    expect(model.hpAt(metal)).toBe(5);
+
+    model.tick(1);
+    expect(model.hpAt(metal)).toBe(6); // full at 6
+
+    model.tick(5); // long past full: nothing over-matures
+    expect(model.hpAt(wood)).toBe(2);
+    expect(model.hpAt(stone)).toBe(4);
+    expect(model.hpAt(metal)).toBe(6);
+    expect(model.maturingCount).toBe(0); // schedule fully drained
+  });
+
+  it("a big tick that spans several steps still stops exactly at full", () => {
+    const { model } = makeModel();
+    const metal = floorSlot(0, 0, 0);
+    model.place(metal, { material: "metal" });
+    model.tick(10); // one huge step covering all maturation at once
+    expect(model.hpAt(metal)).toBe(6);
+  });
+
+  it("destroying a maturing piece clears its schedule (no resurrection)", () => {
+    const { model } = makeModel();
+    const slot = floorSlot(0, 0, 0);
+    model.place(slot, { material: "metal" }); // will mature 3 -> 6
+    expect(model.maturingCount).toBe(1);
+
+    model.removeAt(slot);
+    expect(model.count).toBe(0);
+
+    model.tick(5); // well past when it would have matured
+    expect(model.count).toBe(0);
+    expect(model.has(slot)).toBe(false);
+    expect(model.maturingCount).toBe(0); // stale event popped and discarded
+  });
+
+  it("a re-placed slot matures on its own clock, ignoring the old stale event", () => {
+    const { model } = makeModel();
+    const slot = floorSlot(0, 0, 0);
+    model.place(slot, { material: "stone" }); // event at t=1
+    model.removeAt(slot);
+    model.tick(0.2); // clear the replace cooldown (0.15); stale event still at t=1
+
+    model.place(slot, { material: "stone" }); // fresh: hp 2, next step at t=1.2
+    // Advance past the OLD event (t=1) but not the NEW one (t=1.2): the stale
+    // event fires against the fresh piece and is skipped by the matureAt match.
+    model.tick(0.85); // now t=1.05
+    expect(model.hpAt(slot)).toBe(2);
+    // Past the new step: the fresh piece hardens on its own clock.
+    model.tick(0.3); // now t=1.35
+    expect(model.hpAt(slot)).toBe(3);
+  });
+});
