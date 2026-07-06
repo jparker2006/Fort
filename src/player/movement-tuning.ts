@@ -1,16 +1,19 @@
 // All movement tunables in one place for the feel pass.
 //
-// Fortnite-relative targets (shipped values chosen to match):
+// Fortnite-relative targets (shipped values chosen to match). T27 retuned the
+// traversal speeds to Fortnite's observed cell-crossing times against the T23
+// 4.8-unit cell: a jog crosses one cell in ~1.02 s and a tactical sprint in
+// ~0.8 s (T26, Area 4), so runSpeed = 4.8 / 1.02 and sprintSpeed = 4.8 / 0.8.
 //
 //   Tunable         Target behavior                                Shipped
-//   runSpeed        brisk jog, full speed almost instantly         5.5 u/s
-//   sprintSpeed     ~20% faster than run, forward-only             6.6 u/s
-//   crouchSpeed     slow, deliberate                               2.8 u/s
+//   runSpeed        jog, one 4.8 cell in ~1.02 s                   4.7 u/s
+//   sprintSpeed     ~28% faster than run, forward-only (~0.8 s)    6.0 u/s
+//   crouchSpeed     slow, deliberate (keeps ~0.51 crouch:run)      2.4 u/s
 //   groundAccel     near-instant to full speed (snappy)            60 u/s^2
 //   groundDecel     quick stop with a faint skid                   55 u/s^2
 //   airAccel        strong steering; can reverse mid-jump          45 u/s^2
-//   airMaxSpeed     air speed capped at sprint speed               6.6 u/s
-//   jumpSpeed       apex ~1.5 units above takeoff                  6.8 u/s
+//   airMaxSpeed     air speed capped at sprint speed               6.0 u/s
+//   jumpSpeed       apex ~0.9 units (25% of a 3.6 wall)            5.27 u/s
 //   riseGravity     floaty-ish rise                                15.41 u/s^2
 //   fallGravity     snappier descent than rise                     26.0 u/s^2
 //   maxFallSpeed    terminal velocity, no fall damage              40 u/s
@@ -22,14 +25,17 @@
 // stays honest if either value is retuned.
 
 export const MOVE = {
-  runSpeed: 5.5,
-  sprintSpeed: 6.6,
-  crouchSpeed: 2.8,
+  runSpeed: 4.7,
+  sprintSpeed: 6.0,
+  crouchSpeed: 2.4,
   groundAccel: 60,
   groundDecel: 55,
   airAccel: 45,
-  airMaxSpeed: 6.6,
-  jumpSpeed: 6.8,
+  airMaxSpeed: 6.0,
+  // T28: apex retuned to ~0.9 (Fortnite's ~half-a-player jump, 25% of a 3.6 wall,
+  // T26 Area 4). jumpApex() = 5.27^2 / (2 * 15.41) = 0.90; rise/fall gravity keep
+  // Fort's liked asymmetric feel (Fortnite's split is unpublished).
+  jumpSpeed: 5.27,
   riseGravity: 15.41,
   fallGravity: 26.0,
   maxFallSpeed: 40,
@@ -37,7 +43,7 @@ export const MOVE = {
   jumpBuffer: 0.08,
   stepHeight: 0.6,
   /** Documented Fortnite-relative apex target for the automated arc test. */
-  jumpApexTarget: 1.5,
+  jumpApexTarget: 0.9,
 } as const;
 
 /** Analytic apex height above takeoff for the current jump/gravity values. */

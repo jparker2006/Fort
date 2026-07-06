@@ -15,7 +15,10 @@ export interface AnimInput {
 const WALK_THRESHOLD = 0.4;
 const RUN_REF = RUN_REFERENCE_SPEED;
 const SPRINT_REF = SPRINT_REFERENCE_SPEED;
-const SPRINT_SPEED = 6.0; // above this, use the sprint clip
+// Above this ground speed, use the sprint clip. Kept below MOVE.sprintSpeed (6.0
+// after the T27 retune) and above MOVE.runSpeed (4.7) so a held sprint reliably
+// crosses into the sprint clip while a plain jog stays on the run clip.
+const SPRINT_SPEED = 5.3;
 
 export class AnimationController {
   private readonly mixer: THREE.AnimationMixer;

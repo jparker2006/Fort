@@ -3,6 +3,7 @@ import { PlayerState } from "./player-state.ts";
 import { CollisionWorld, makeBox } from "./collision.ts";
 import { MovementController, type MovementInput } from "./movement.ts";
 import { MOVE, jumpApex, jumpAirtime } from "./movement-tuning.ts";
+import { CELL_SIZE, CELL_HEIGHT } from "../world/grid.ts";
 import type { Action } from "../input/actions.ts";
 
 // Scriptable fake input: a set of held actions and one-shot pressed edges.
@@ -49,6 +50,12 @@ describe("movement: jump arc", () => {
     expect(Math.abs(maxY - target) / target).toBeLessThan(0.05);
     // And the analytic apex agrees with the target too.
     expect(Math.abs(jumpApex() - target) / target).toBeLessThan(0.05);
+  });
+
+  it("apex is about a quarter of a wall after the T28 retune", () => {
+    // 0.9 apex against a 3.6 wall = 25 percent, Fortnite's ~half-a-player hop.
+    expect(jumpApex()).toBeCloseTo(MOVE.jumpApexTarget, 1);
+    expect(jumpApex() / CELL_HEIGHT).toBeCloseTo(0.25, 2);
   });
 
   it("airtime matches the analytic value within 5 percent", () => {
@@ -119,6 +126,25 @@ describe("movement: ground speeds", () => {
     // After ~0.15s the player should be near full speed.
     for (let i = 0; i < Math.round(0.15 / DT); i++) ctrl.step(DT);
     expect(Math.hypot(state.velocity.x, state.velocity.z)).toBeGreaterThan(MOVE.runSpeed * 0.9);
+  });
+});
+
+describe("movement: cell-crossing cadence (T27)", () => {
+  // Fails loudly if either CELL_SIZE or a speed is retuned alone, keeping the
+  // Fortnite-observed cross-times (jog ~1.02 s, sprint ~0.8 s per 4.8 cell) tied
+  // to the shipped speeds. Tolerance 0.02 s absorbs the rounding in the speeds.
+  it("a jog crosses one cell in about 1.02 s", () => {
+    expect(CELL_SIZE / MOVE.runSpeed).toBeCloseTo(1.02, 2);
+    expect(Math.abs(CELL_SIZE / MOVE.runSpeed - 1.02)).toBeLessThan(0.02);
+  });
+
+  it("a sprint crosses one cell in about 0.8 s", () => {
+    expect(Math.abs(CELL_SIZE / MOVE.sprintSpeed - 0.8)).toBeLessThan(0.02);
+  });
+
+  it("keeps the sprint:run ratio near 1.28 and the crouch:run ratio near 0.51", () => {
+    expect(MOVE.sprintSpeed / MOVE.runSpeed).toBeCloseTo(1.28, 1);
+    expect(MOVE.crouchSpeed / MOVE.runSpeed).toBeCloseTo(0.51, 1);
   });
 });
 

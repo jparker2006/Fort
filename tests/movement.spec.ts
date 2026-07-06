@@ -148,6 +148,63 @@ test("stands on a roof apex at half a wall after the T24 peak change", async ({ 
   expect(y).toBeLessThan(CELL_HEIGHT / 2 + 0.15);
 });
 
+test("a jog covers one cell in its cross-time, measured at steady speed (T27)", async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => {
+    const f = (window as unknown as FortWin).__fort;
+    f.debug.setYaw(0); // forward is -Z
+    f.debug.teleport(0, 0, 20);
+  });
+
+  await page.keyboard.down("KeyW");
+  // Spin up to steady run speed first (groundAccel 60 reaches runSpeed in ~0.08 s;
+  // 30 pumped frames is ~0.5 s, well past it), so we measure cruising, not accel.
+  await page.evaluate(() => (window as unknown as FortWin).__fort.debug.pump(30));
+  const z0 = await page.evaluate(() => (window as unknown as FortWin).__fort.debug.playerPos().z);
+
+  // Measure across one cell-cross window: CELL_SIZE / runSpeed seconds, and each
+  // pumped frame advances 1/60 s of sim.
+  const windowFrames = Math.round((CELL_SIZE / MOVE.runSpeed) * 60);
+  await page.evaluate((n) => (window as unknown as FortWin).__fort.debug.pump(n), windowFrames);
+  const z1 = await page.evaluate(() => (window as unknown as FortWin).__fort.debug.playerPos().z);
+  await page.keyboard.up("KeyW");
+
+  const displacement = Math.abs(z1 - z0);
+  // The integrated jog crosses ~one 4.8 cell over its 1.02 s window; the old 5.5
+  // speed would overshoot well past this band, so it fails loudly on a regression.
+  expect(displacement).toBeGreaterThan(CELL_SIZE - 0.25);
+  expect(displacement).toBeLessThan(CELL_SIZE + 0.25);
+});
+
+test("a bare jump apexes about a quarter up a full wall and cannot mount it (T28)", async ({ page }) => {
+  await ready(page);
+  await page.evaluate((cell) => {
+    const f = (window as unknown as FortWin).__fort;
+    // A real full-height wall (CELL_HEIGHT = 3.6) on the south edge of cell 0.
+    f.debug.build.wall(0, 0, 0, "S", { material: "stone" });
+    f.debug.setYaw(Math.PI); // face +Z, toward the wall
+    f.debug.teleport(0.5 * cell, 0, -1.2); // stand just south of it
+    f.debug.pump(2);
+  }, CELL_SIZE);
+
+  // Walk into the wall and jump from flat ground.
+  await page.keyboard.down("KeyW");
+  await run(page, 15);
+  await page.keyboard.down("Space");
+  const rise = await run(page, 22); // ~riseTime: near the apex
+  await page.screenshot({ path: `${EVIDENCE_DIR}/after-jump-vs-wall.png` });
+  const fall = await run(page, 70); // finish the arc back to the ground
+  await page.keyboard.up("KeyW");
+  await page.keyboard.up("Space");
+
+  const maxY = Math.max(rise.maxY, fall.maxY);
+  // Apex near 0.9 (a quarter of the 3.6 wall), far below its 3.6 top, and the
+  // player never climbs on: the retuned hop cannot mount a full wall.
+  expect(maxY).toBeGreaterThan(0.6);
+  expect(maxY).toBeLessThan(1.3);
+  expect(fall.last.y).toBeLessThan(0.3); // ended on the ground, did not mount
+});
+
 test("running into a wall does not explode or produce NaN", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => {
