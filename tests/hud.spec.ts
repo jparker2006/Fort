@@ -39,6 +39,41 @@ test("HUD shows the piece tray, material, and mode in build mode at 1080p", asyn
   await page.screenshot({ path: `${EVIDENCE_DIR}/t15-hud-build.png` });
 });
 
+test("HUD chrome type treatment applies without changing structure (T35)", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await ready(page);
+  await page.evaluate(() => {
+    const t = (window as unknown as FortWin).__fort.debug.target;
+    t.setMode("build");
+    t.setPiece("wall");
+  });
+  await pump(page, 2);
+
+  // The mode chip carries the heavy condensed stack and the dynamic skew.
+  const chip = await page.evaluate(() => {
+    const el = document.querySelector("#hud-mode") as HTMLElement;
+    const cs = getComputedStyle(el);
+    return { weight: cs.fontWeight, transform: cs.transform, text: el.textContent };
+  });
+  expect(chip.weight).toBe("800");
+  // skewX(-7deg) resolves to a non-identity matrix.
+  expect(chip.transform).not.toBe("none");
+  expect(chip.text).toBe("Build");
+
+  // Tray key labels still render live from the action map (bind labels intact).
+  const keys = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("#hud-tray .tray-key")).map((k) => k.textContent),
+  );
+  expect(keys).toHaveLength(4);
+  expect(keys.every((k) => (k?.length ?? 0) > 0)).toBe(true);
+  const keyWeight = await page.evaluate(
+    () => getComputedStyle(document.querySelector(".tray-slot .tray-key") as HTMLElement).fontWeight,
+  );
+  expect(keyWeight).toBe("800");
+
+  await page.screenshot({ path: `${EVIDENCE_DIR}/after-hud.png` });
+});
+
 test("HUD switches crosshair and mode chip into edit mode", async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await ready(page);

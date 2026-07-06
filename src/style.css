@@ -84,15 +84,22 @@ canvas.fort-canvas {
   gap: var(--gap);
 }
 
+/* --- HUD chrome type treatment (T35): CSS-only, no font file. A heavy,
+   condensed system stack with a slight forward skew on the mode chip gives a
+   dynamic, Fortnite-like tag; the tray key labels share the weight/stretch.
+   Colours, geometry, icons, and the teal/copper accents are untouched. --- */
 #hud-mode {
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  padding: 0.3em 0.8em;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-weight: 800;
+  font-stretch: 88%; /* condensed where the system face supports it */
+  letter-spacing: 0.09em; /* tightened from 0.14em */
+  padding: 0.3em 0.85em;
   border-radius: var(--hud-radius);
   background: rgba(9, 20, 24, 0.62);
   border: 1px solid rgba(51, 196, 196, 0.35);
   color: var(--hud-accent);
   text-transform: uppercase;
+  transform: skewX(-7deg); /* 6-8deg dynamic slant on the chip only */
 }
 #hud-mode[data-mode="edit"] {
   color: #ff9d2e;
@@ -141,8 +148,11 @@ canvas.fort-canvas {
   position: absolute;
   left: 0.28em;
   top: 0.16em;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 0.82em;
-  font-weight: 700;
+  font-weight: 800; /* T35: heavier, condensed to match the mode chip */
+  font-stretch: 88%;
+  letter-spacing: 0.02em;
   color: var(--hud-fg);
   opacity: 0.82;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
