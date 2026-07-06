@@ -239,6 +239,10 @@ const debug = {
     removeFloor(cx: number, cy: number, cz: number): boolean {
       return build.remove(floorSlot(cx, cy, cz));
     },
+    // Slots currently under the T25 replace cooldown (boundedness probe).
+    cooldownCount(): number {
+      return build.model.cooldownCount;
+    },
     scatter(n: number): number {
       return build.debugScatter(n);
     },

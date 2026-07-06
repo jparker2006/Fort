@@ -113,7 +113,7 @@ test("turbo build fills fresh slots while held, and stops when toggled off", asy
   await page.mouse.down();
   for (let i = 0; i < 6; i++) {
     await standAt(page, (-2 + i) * CELL_SIZE);
-    await pump(page, 8); // > TURBO_INTERVAL (0.1s ~ 6 frames)
+    await pump(page, 8); // clears the tap plus TURBO_FIRST_DELAY (0.15s ~ 9 frames)
   }
   await page.mouse.up();
   const afterTurbo = await count(page);
@@ -130,6 +130,92 @@ test("turbo build fills fresh slots while held, and stops when toggled off", asy
   }
   await page.mouse.up();
   expect(await count(page) - held).toBeLessThanOrEqual(1);
+});
+
+// Sweep the player one cell east per step while holding fire, placing a floor in
+// the cell ahead of the crosshair (floors are one slot per cell, unlike walls
+// which share edges between neighbours and would double-target). `framesPerCell`
+// pumped frames pass per cell: at 4 frames (~0.067 s) a 0.05 s cadence always
+// lands a tick inside each cell (one floor per cell), while the OLD 0.1 s cadence
+// would tick only every other cell.
+async function sweepFloorRun(page: import("@playwright/test").Page, cells: number, framesPerCell: number) {
+  await page.evaluate(() => {
+    const t = (window as unknown as FortWin).__fort.debug.target;
+    t.setMode("build");
+    t.setPiece("floor");
+    t.setTurbo(true);
+  });
+  await page.evaluate((cell) => {
+    const f = (window as unknown as FortWin).__fort;
+    f.debug.teleport(-19 * cell, 0, 10);
+    f.debug.setYaw(0);
+    f.debug.setPitch(-0.7); // crosshair on the ground a cell ahead (-Z)
+  }, CELL_SIZE);
+  await pump(page, 2);
+  const before = await count(page);
+
+  await page.mouse.down();
+  for (let i = 0; i < cells; i++) {
+    await page.evaluate((a) => (window as unknown as FortWin).__fort.debug.teleport((-19 + a.i) * a.cell, 0, 10), {
+      cell: CELL_SIZE,
+      i,
+    });
+    await pump(page, framesPerCell);
+  }
+  await page.mouse.up();
+  return (await count(page)) - before;
+}
+
+test("turbo streams many pieces during a held sweep (T25 end-to-end + evidence)", async ({ page }) => {
+  await ready(page);
+
+  // End-to-end smoke through the real input + targeting path: a held sweep lays
+  // down a long run of floors. The EXACT cadence count is pinned deterministically
+  // in src/build/build-controller.test.ts (the camera spring makes the browser
+  // count jitter); here we only assert the stream is clearly flowing and capture
+  // the evidence shot.
+  const placed = await sweepFloorRun(page, 39, 4);
+  expect(placed).toBeGreaterThanOrEqual(12);
+
+  // Evidence: stand back and shoot the finished turbo run.
+  await page.evaluate(() => {
+    const f = (window as unknown as FortWin).__fort;
+    f.debug.teleport(0, 0, 34);
+    f.debug.setYaw(0);
+    f.debug.setPitch(-0.2);
+  });
+  await pump(page, 3);
+  await page.screenshot({ path: `${EVIDENCE_DIR}/after-turbo-run.png` });
+});
+
+test("two quick taps place two pieces in different slots with no cross-slot delay (T25)", async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => {
+    const t = (window as unknown as FortWin).__fort.debug.target;
+    t.setMode("build");
+    t.setPiece("wall");
+    t.setTurbo(true); // even with turbo on, distinct taps stay instant
+  });
+  await standAt(page, -4);
+  await pump(page, 2);
+  const before = await count(page);
+
+  // Tap 1.
+  await page.mouse.down();
+  await pump(page, 1);
+  await page.mouse.up();
+  await pump(page, 1);
+
+  // Move to a fresh cell and tap again at once: the first-delay governs only the
+  // held auto-repeat, never a new tap, so the second piece lands immediately.
+  await standAt(page, 4);
+  await pump(page, 1);
+  await page.mouse.down();
+  await pump(page, 1);
+  await page.mouse.up();
+  await pump(page, 1);
+
+  expect((await count(page)) - before).toBe(2);
 });
 
 async function placeHere(page: import("@playwright/test").Page): Promise<string> {

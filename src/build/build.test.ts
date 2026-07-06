@@ -14,7 +14,7 @@ import { pieceColliders, STAIR_STEPS, ROOF_LAYERS } from "./colliders.ts";
 import { checkPlacement, BUILD_MAX_LEVEL } from "./rules.ts";
 import { CELL_SIZE, CELL_HEIGHT } from "../world/grid.ts";
 import { MOVE } from "../player/movement-tuning.ts";
-import { PoolRegistry, BuildModel, fullVariant } from "./build-model.ts";
+import { PoolRegistry, BuildModel, fullVariant, REPLACE_COOLDOWN } from "./build-model.ts";
 import { baseGeometry } from "./variants.ts";
 import { PIECE_TYPES, type Slot, type Rotation } from "./piece.ts";
 
@@ -183,6 +183,58 @@ describe("build model derived views", () => {
     const playerBox = { minX: 1, minY: 0, minZ: 1, maxX: 3, maxY: 1.8, maxZ: 3 };
     const res = model.canPlace(floorSlot(0, 0, 0), { playerBox });
     expect(res.ok).toBe(false);
+  });
+
+  it("locks a just-freed slot against an instant rebuild, then reopens it (T25)", () => {
+    const { model } = makeModel();
+    const slot = floorSlot(0, 0, 0);
+    expect(model.place(slot)).toBe(true);
+    expect(model.removeAt(slot)).toBe(true);
+
+    // Right after the removal seam the same slot is cooling: canPlace reports it
+    // and place() refuses, even though the slot is empty and ground-supported.
+    expect(model.canPlace(slot)).toEqual({ ok: false, reason: "cooling" });
+    expect(model.place(slot)).toBe(false);
+
+    // Advancing the model clock past the window reopens the slot exactly.
+    model.tick(REPLACE_COOLDOWN);
+    expect(model.canPlace(slot).ok).toBe(true);
+    expect(model.place(slot)).toBe(true);
+  });
+
+  it("cools only the freed slot, never a neighbour (negative space, T25)", () => {
+    const { model } = makeModel();
+    model.place(floorSlot(0, 0, 0));
+    model.removeAt(floorSlot(0, 0, 0));
+    // A different slot is placeable at t+0 after the destroy.
+    expect(model.canPlace(floorSlot(1, 0, 0)).ok).toBe(true);
+    expect(model.place(floorSlot(1, 0, 0))).toBe(true);
+  });
+
+  it("arms the cooldown on every removal path, including damage destroy (T25 seam)", () => {
+    const { model } = makeModel();
+    const slot = wallOnEdge(0, 0, 0, "S");
+    model.place(slot, { material: "wood" }); // 2 HP
+    // damageAt routes through removeAt when it destroys, so the seam still arms.
+    expect(model.damageAt(slot, 2)).toBe("destroyed");
+    expect(model.canPlace(slot).reason).toBe("cooling");
+  });
+
+  it("purges expired entries on every insert, staying bounded (T25)", () => {
+    const { model } = makeModel();
+    // Three removals inside one window are all held at once.
+    for (const cx of [0, 1, 2]) {
+      model.place(floorSlot(cx, 0, 0));
+      model.removeAt(floorSlot(cx, 0, 0));
+    }
+    expect(model.cooldownCount).toBe(3);
+
+    // Advance past the window; the next removal purges all three expired entries
+    // before inserting its own, so the map never grows unbounded.
+    model.tick(REPLACE_COOLDOWN + 0.01);
+    model.place(floorSlot(5, 0, 0));
+    model.removeAt(floorSlot(5, 0, 0));
+    expect(model.cooldownCount).toBe(1);
   });
 
   it("scatters many valid pieces across a bounded pool set", () => {

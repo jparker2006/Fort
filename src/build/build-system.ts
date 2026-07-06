@@ -51,8 +51,14 @@ export class BuildSystem implements System {
   }
 
   init(_game: Game): void {
-    // No per-frame work yet; targeting/placement systems drive the model later.
+    // No init-time work; targeting/placement systems drive the model per frame.
     void _game;
+  }
+
+  // Advance the model's sim clock at the fixed rate so the replace cooldown (and
+  // T30's maturation) tick deterministically, independent of render frame rate.
+  fixedUpdate(dt: number): void {
+    this.model.tick(dt);
   }
 
   place(slot: Slot, opts: PlaceOptions = {}): boolean {

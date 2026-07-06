@@ -19,7 +19,7 @@ export const BUILD_MAX_LEVEL = 40;
 
 export type Occupied = (key: SlotKey) => boolean;
 
-export type RejectReason = "occupied" | "out-of-bounds" | "unsupported";
+export type RejectReason = "occupied" | "out-of-bounds" | "unsupported" | "cooling";
 
 export interface Validity {
   ok: boolean;

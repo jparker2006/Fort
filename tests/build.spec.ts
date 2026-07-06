@@ -68,6 +68,33 @@ test("colliders update incrementally and a destroyed floor drops the player", as
   expect(fell).toBeLessThan(1);
 });
 
+test("a debug removal arms the replace cooldown, which the model clock clears (T25)", async ({ page }) => {
+  await ready(page);
+
+  // Place then destroy a floor via the debug seam (removeFloor -> model.removeAt),
+  // then probe the same slot and a neighbour in the same instant (no sim time
+  // passes inside a single evaluate).
+  const seam = await page.evaluate(() => {
+    const b = (window as unknown as FortWin).__fort.debug.build;
+    b.floor(0, 0, 0, { material: "wood" });
+    b.removeFloor(0, 0, 0); // arms the cooldown at the removal seam
+    return {
+      sameSlot: b.floor(0, 0, 0), // cooling -> rejected
+      otherSlot: b.floor(3, 0, 0), // different slot -> placed at t+0
+      armed: b.cooldownCount(), // exactly the one freed slot is held
+    };
+  });
+  expect(seam.sameSlot).toBe(false);
+  expect(seam.otherSlot).toBe(true);
+  expect(seam.armed).toBe(1);
+
+  // Advance the model clock past the 0.15 s window (pump drives fixedUpdate ->
+  // model.tick); the same slot then accepts a rebuild.
+  await pump(page, 14);
+  const reopened = await page.evaluate(() => (window as unknown as FortWin).__fort.debug.build.floor(0, 0, 0));
+  expect(reopened).toBe(true);
+});
+
 test("a built structure blocks the camera spring arm", async ({ page }) => {
   await ready(page);
   // Place a wall directly behind the player and confirm no page errors while

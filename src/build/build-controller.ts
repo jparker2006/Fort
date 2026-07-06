@@ -18,8 +18,16 @@ import { DEFAULT_GAMEPLAY, type GameplaySettings } from "../settings/gameplay.ts
 
 export type BuildMode = "movement" | "build" | "mattock";
 
-/** Turbo build retry cadence (Fortnite-like ~100 ms between placements). */
-export const TURBO_INTERVAL = 0.1;
+/** Turbo build repeat cadence once the run is going (Fortnite-like ~50 ms). */
+export const TURBO_INTERVAL = 0.05;
+
+/**
+ * Delay between the initial tap-place and the FIRST turbo repeat, so a single
+ * click still places exactly one piece and only a sustained hold ramps into the
+ * fast cadence (key-repeat feel). A fresh tap is always instant; this gap only
+ * governs the transition from tap into the held stream.
+ */
+export const TURBO_FIRST_DELAY = 0.15;
 
 // The piece-select action -> piece type mapping.
 const PIECE_BINDS: ReadonlyArray<[Parameters<InputSystem["justPressed"]>[0], PieceType]> = [
@@ -42,6 +50,9 @@ export class BuildController implements System {
   private valid = false;
 
   private turboTimer = 0;
+  // True after a tap-place while the hold is still waiting out TURBO_FIRST_DELAY
+  // before the first repeat; cleared once the stream's cadence takes over.
+  private awaitingFirstRepeat = false;
   private lastPlacedKey: string | null = null;
 
   gameplay: GameplaySettings = { ...DEFAULT_GAMEPLAY };
@@ -76,6 +87,7 @@ export class BuildController implements System {
     }
     this.lastPlacedKey = null;
     this.turboTimer = 0;
+    this.awaitingFirstRepeat = false;
   }
 
   getMode(): BuildMode {
@@ -99,6 +111,7 @@ export class BuildController implements System {
   /** Clear transient placement state (turbo run, ghost) safely, e.g. on pause. */
   cancelTransient(): void {
     this.turboTimer = 0;
+    this.awaitingFirstRepeat = false;
     this.lastPlacedKey = null;
     this.ghost?.hide();
   }
@@ -184,18 +197,29 @@ export class BuildController implements System {
     const fireHeld = this.input.isDown("primaryFire");
 
     if (firePressed && this.valid) {
+      // A fresh tap always places instantly; the next repeat waits FIRST_DELAY.
       this.placeTarget();
       this.turboTimer = 0;
+      this.awaitingFirstRepeat = true;
     } else if (this.gameplay.turboBuild && fireHeld) {
       this.turboTimer += dt;
-      if (this.turboTimer >= TURBO_INTERVAL) {
+      // The first repeat after a tap is gated by FIRST_DELAY; once the stream is
+      // going every subsequent repeat fires at the faster TURBO_INTERVAL.
+      const threshold = this.awaitingFirstRepeat ? TURBO_FIRST_DELAY : TURBO_INTERVAL;
+      if (this.turboTimer >= threshold) {
         this.turboTimer = 0;
         const key = this.target ? slotKey(this.target.slot) : null;
         // Only place into a fresh valid slot (never twice into the same one).
-        if (this.valid && key !== null && key !== this.lastPlacedKey) this.placeTarget();
+        if (this.valid && key !== null && key !== this.lastPlacedKey) {
+          this.placeTarget();
+          this.awaitingFirstRepeat = false;
+        }
       }
     }
-    if (!fireHeld) this.lastPlacedKey = null;
+    if (!fireHeld) {
+      this.lastPlacedKey = null;
+      this.awaitingFirstRepeat = false;
+    }
   }
 
   private resolveAndPreview(): void {

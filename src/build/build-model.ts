@@ -107,6 +107,12 @@ interface StoredPiece {
 // Fortnite's pickaxe vs. fresh wood) with stone and metal progressively tougher.
 const MATERIAL_HP: Record<Material, number> = { wood: 2, stone: 3, metal: 5 };
 
+// After a piece is removed, its slot is briefly locked against an instant
+// rebuild (Fortnite-style replace cadence): you cannot spam-destroy-and-replace
+// the same wall with no gap. Measured in seconds of sim time and driven by the
+// model's own tick(dt) clock, so it is deterministic and browser-free.
+export const REPLACE_COOLDOWN = 0.15;
+
 export function hitPointsFor(material: Material): number {
   return MATERIAL_HP[material];
 }
@@ -122,6 +128,13 @@ export class BuildModel {
   private readonly pieces = new Map<SlotKey, StoredPiece>();
   // Per pool, the slot key living at each instance index, for swap bookkeeping.
   private readonly poolSlots = new Map<string, SlotKey[]>();
+  // Internal sim clock (seconds), advanced by tick(dt) from BuildSystem's fixed
+  // step. Drives the replace cooldown now; T30's maturation reads the same clock.
+  private simTime = 0;
+  // Slot key -> sim time at which its replace cooldown expires. Written at the
+  // single removal seam (removeAt) and purged on every insert, so it is bounded
+  // by the number of removals inside one cooldown window.
+  private readonly recentlyFreed = new Map<SlotKey, number>();
   private readonly scratch = new THREE.Matrix4();
   private readonly q = new THREE.Quaternion();
   private readonly pos = new THREE.Vector3();
@@ -139,10 +152,31 @@ export class BuildModel {
 
   private occupied = (key: SlotKey): boolean => this.pieces.has(key);
 
-  /** Full validity check (occupancy, bounds, support, optional player overlap). */
+  /**
+   * Advance the model's sim clock. Called from BuildSystem.fixedUpdate at the
+   * fixed step so cooldown (and later maturation) behaviour is deterministic and
+   * unit-testable without a browser: one clock, driven at the sim rate.
+   */
+  tick(dt: number): void {
+    this.simTime += dt;
+  }
+
+  /** True while a just-freed slot is still within its replace cooldown window. */
+  private onCooldown(key: SlotKey): boolean {
+    const until = this.recentlyFreed.get(key);
+    return until !== undefined && this.simTime < until;
+  }
+
+  /** Slots currently under a live replace cooldown (test/HUD helper). */
+  get cooldownCount(): number {
+    return this.recentlyFreed.size;
+  }
+
+  /** Full validity check (occupancy, bounds, support, cooldown, player overlap). */
   canPlace(slot: Slot, opts: PlaceOptions = {}): Validity {
     const base = checkPlacement(slot, this.occupied);
     if (!base.ok) return base;
+    if (this.onCooldown(slotKey(slot))) return { ok: false, reason: "cooling" };
     if (opts.playerBox && this.intersectsPlayer(slot, opts.rotation ?? 0, opts.playerBox)) {
       return { ok: false, reason: "occupied" };
     }
@@ -294,7 +328,19 @@ export class BuildModel {
     if (!piece) return false;
     this.detachInstance(piece);
     this.pieces.delete(key);
+    this.armCooldown(key);
     return true;
+  }
+
+  // Arm the replace cooldown at the single removal seam, so every removal path
+  // (Mattock destroy, debug removal, any future collapse routes through
+  // removeAt) is covered with no holes. Purges all expired entries first, which
+  // keeps recentlyFreed bounded by the removals inside one cooldown window.
+  private armCooldown(key: SlotKey): void {
+    for (const [k, until] of this.recentlyFreed) {
+      if (this.simTime >= until) this.recentlyFreed.delete(k);
+    }
+    this.recentlyFreed.set(key, this.simTime + REPLACE_COOLDOWN);
   }
 
   has(slot: Slot): boolean {
